@@ -5,6 +5,7 @@ pub struct Field {
   bit_offset : UInt64
   bit_width : UInt64
   access : String?
+  behavior : AccessBehavior
   line : Int32
 }
 
@@ -17,6 +18,7 @@ pub struct Register {
   address : UInt64
   size : Int32
   access : String?
+  behavior : AccessBehavior
   reset_value : UInt64?
   reset_mask : UInt64?
   alternate_register : String?
@@ -165,6 +167,7 @@ fn Expansion::fields(
   children : Array[String],
   parent : String,
   default_access : String?,
+  default_constraint : WriteConstraint?,
 ) -> Array[Field] raise SvdError {
   let result = []
   for child in children {
@@ -172,6 +175,7 @@ fn Expansion::fields(
     let node = resolved.declaration.node
     let (offset, width) = resolved.range()
     let access = checked_access(resolved.text("access"), default_access, node)
+    let behavior = resolved.behavior(default_constraint)
     for field in resolved.instances() {
       self.record("\{parent}.\{field.name}", node)
       result.push({
@@ -179,6 +183,7 @@ fn Expansion::fields(
         bit_offset: checked_add(offset, field.offset, node),
         bit_width: width,
         access,
+        behavior,
         line: node.line,
       })
     }
@@ -227,6 +232,7 @@ fn Expansion::visit(
         Some(value) => value
         None => raise node.invalid("missing effective register size")
       }
+      let behavior = item.behavior(None)
       self.registers.push({
         path: key,
         parent,
@@ -234,11 +240,17 @@ fn Expansion::visit(
         address,
         size,
         access: defaults.access,
+        behavior,
         reset_value: defaults.reset_value,
         reset_mask: defaults.reset_mask,
         alternate_register: item.text("alternateRegister"),
         alternate_group: item.text("alternateGroup"),
-        fields: self.fields(item.children, key, defaults.access),
+        fields: self.fields(
+          item.children,
+          key,
+          defaults.access,
+          behavior.write_constraint,
+        ),
         line: node.line,
       })
     } else {

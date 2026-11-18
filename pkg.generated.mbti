@@ -13,6 +13,12 @@ pub suberror SvdError {
 pub fn SvdError::message(Self) -> String
 
 // Types and methods
+pub struct AccessBehavior {
+  read_action : String?
+  modified_write_values : String?
+  write_constraint : WriteConstraint?
+}
+
 pub struct Change {
   path : String
   before : Register?
@@ -47,6 +53,7 @@ pub struct Field {
   bit_offset : UInt64
   bit_width : UInt64
   access : String?
+  behavior : AccessBehavior
   line : Int
 }
 
@@ -57,6 +64,7 @@ pub struct Register {
   address : UInt64
   size : Int
   access : String?
+  behavior : AccessBehavior
   reset_value : UInt64?
   reset_mask : UInt64?
   alternate_register : String?
@@ -66,6 +74,14 @@ pub struct Register {
 }
 pub fn Register::decode_field(Self, String, UInt64) -> UInt64?
 pub fn Register::json(Self) -> Json
+
+pub enum WriteConstraint {
+  AsRead(Bool)
+  Enumerated(Bool)
+  Range(UInt64, UInt64)
+} derive(Eq)
+pub fn WriteConstraint::equal(Self, Self) -> Bool
+pub fn WriteConstraint::not_equal(Self, Self) -> Bool
 
 // Type aliases
 
