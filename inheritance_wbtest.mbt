@@ -33,3 +33,19 @@ test "inheritance diagnoses unknown targets and reference cycles" {
     }
   }
 }
+
+///|
+test "derived names resolve a register inherited into the current scope" {
+  let input =
+    #|<device><name>Device</name><width>32</width><peripherals>
+    #|<peripheral><name>A</name><baseAddress>0</baseAddress><registers>
+    #|<register><name>ORIG</name><addressOffset>0</addressOffset><access>read-only</access></register>
+    #|</registers></peripheral>
+    #|<peripheral derivedFrom="A"><name>B</name><baseAddress>8</baseAddress><registers>
+    #|<register derivedFrom="ORIG"><name>NEW</name><addressOffset>4</addressOffset></register>
+    #|</registers></peripheral>
+    #|</peripherals></device>
+  let reg = parse(input).find("B.NEW").unwrap()
+  assert_eq(reg.address, 12UL)
+  assert_eq(reg.access, Some("read-only"))
+}

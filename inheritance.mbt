@@ -27,6 +27,7 @@ fn Resolver::reference(
   self : Resolver,
   item : Declaration,
   reference : String,
+  depth : Int32,
 ) -> String raise SvdError {
   if reference == "" {
     raise item.node.invalid("empty derivedFrom in '\{item.path}'")
@@ -36,8 +37,8 @@ fn Resolver::reference(
   } else {
     reference
   }
-  match self.schema.declarations.get(target) {
-    Some(decl) if decl.node.name == item.node.name => target
+  match self.effective_path(target, depth) {
+    Some(path) if self.definition(path).node.name == item.node.name => path
     Some(_) =>
       raise item.node.invalid("incorrect kind for derivedFrom '\{target}'")
     None =>
@@ -45,6 +46,38 @@ fn Resolver::reference(
         "unknown derivedFrom '\{target}' in '\{item.path}'",
       )
   }
+}
+
+///|
+fn Resolver::effective_path(
+  self : Resolver,
+  target : String,
+  depth : Int32,
+) -> String? raise SvdError {
+  if self.schema.declarations.contains(target) {
+    return Some(target)
+  }
+  let parts = target.split(".").to_array()
+  let mut path = parts[0].to_owned()
+  if !self.schema.declarations.contains(path) {
+    return None
+  }
+  for i in 1..<parts.length() {
+    let local_name = parts[i].to_owned()
+    let parent = self.resolve(path, depth~)
+    let mut found = None
+    for child in parent.children {
+      if self.definition(child).name == local_name {
+        found = Some(child)
+        break
+      }
+    }
+    match found {
+      Some(child) => path = child
+      None => return None
+    }
+  }
+  Some(path)
 }
 
 ///|
@@ -114,7 +147,7 @@ fn Resolver::resolve(
   let result = match node.attributes.get("derivedFrom") {
     None => { declaration, values: own_values, children: declaration.children, }
     Some(reference) => {
-      let key = self.reference(declaration, reference)
+      let key = self.reference(declaration, reference, depth + 1)
       let base = self.resolve(key, depth=depth + 1)
       let values = Map([])
       let mut new_geometry = 0

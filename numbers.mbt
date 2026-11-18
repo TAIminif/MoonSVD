@@ -21,14 +21,21 @@ fn number(raw : String, node : Node, label : String) -> UInt64 raise SvdError {
   let mut end = chars.length()
   let mut base = 10
   let mut scale = 1UL
-  if end >= 2 && chars[0] == '0' && (chars[1] == 'x' || chars[1] == 'X') {
-    start = 2
-    base = 16
-  } else if end >= 2 && chars[0] == '0' && (chars[1] == 'b' || chars[1] == 'B') {
-    start = 2
-    base = 2
-  } else if end > 0 && chars[0] == '#' {
+  if end > 0 && chars[0] == '+' {
     start = 1
+  }
+  if end - start >= 2 &&
+    chars[start] == '0' &&
+    (chars[start + 1] == 'x' || chars[start + 1] == 'X') {
+    start += 2
+    base = 16
+  } else if end - start >= 2 &&
+    chars[start] == '0' &&
+    (chars[start + 1] == 'b' || chars[start + 1] == 'B') {
+    start += 2
+    base = 2
+  } else if end > start && chars[start] == '#' {
+    start += 1
     base = 2
   }
   if end > start {

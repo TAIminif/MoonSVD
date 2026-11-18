@@ -8,6 +8,7 @@ test "numeric radices, scaled values and 64-bit exactness" {
   assert_eq(root.small("size", 64), Some(64))
   assert_eq(number("#10111", root, "bits"), 23UL)
   assert_eq(number("0b110", root, "bits"), 6UL)
+  assert_eq(number("+0x110", root, "bits"), 272UL)
 }
 
 ///|

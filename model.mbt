@@ -68,14 +68,15 @@ fn checked_access(
 ) -> String? raise SvdError {
   match access {
     None => parent
-    Some(
-      "read-only"
-      | "write-only"
-      | "read-write"
-      | "writeOnce"
-      | "read-writeOnce"
-    ) => access
-    Some(value) => raise node.invalid("unknown register access '\{value}'")
+    Some(value) =>
+      match value {
+        "read-only"
+        | "write-only"
+        | "read-write"
+        | "writeOnce"
+        | "read-writeOnce" => access
+        _ => raise node.invalid("unknown register access '\{value}'")
+      }
   }
 }
 
