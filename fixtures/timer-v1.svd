@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<device schemaVersion="1.3">
+  <name>TimerDemo</name>
+  <version>1.0</version>
+  <addressUnitBits>8</addressUnitBits>
+  <width>32</width>
+  <size>32</size>
+  <access>read-write</access>
+  <resetValue>0</resetValue>
+  <resetMask>0xffffffff</resetMask>
+  <peripherals>
+    <peripheral>
+      <name>TIMER0</name>
+      <baseAddress>0x40000000</baseAddress>
+      <registers>
+        <register>
+          <name>CTRL</name><addressOffset>0</addressOffset>
+          <fields>
+            <field><name>ENABLE</name><bitRange>[0:0]</bitRange></field>
+            <field><name>MODE</name><bitOffset>4</bitOffset><bitWidth>2</bitWidth></field>
+          </fields>
+        </register>
+        <register>
+          <dim>2</dim><dimIncrement>4</dimIncrement>
+          <name>CAPTURE[%s]</name><addressOffset>0x10</addressOffset><access>read-only</access>
+        </register>
+      </registers>
+    </peripheral>
+    <peripheral derivedFrom="TIMER0">
+      <name>TIMER1</name><baseAddress>0x40000100</baseAddress>
+    </peripheral>
+  </peripherals>
+</device>

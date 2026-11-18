@@ -1,0 +1,5 @@
+import {
+  "TAIminif/moonsvd" @svd,
+}
+
+pkgtype(kind: "executable")

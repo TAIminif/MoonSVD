@@ -1,0 +1,42 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o "$RUNNER_TEMP/install-moonbit.sh"
+          bash "$RUNNER_TEMP/install-moonbit.sh"
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Check, test and build
+        run: |
+          moon version --all
+          moon update
+          moon fmt --check
+          for backend in wasm-gc wasm js native; do
+            moon check --target "$backend" --deny-warn
+            moon test --target "$backend" --deny-warn
+          done
+          moon build --target js --release
+          moon run examples/inspect
+      - name: Verify CLI and reference files
+        run: python scripts/verify_cli.py --official
+      - name: Package sources
+        run: moon package
