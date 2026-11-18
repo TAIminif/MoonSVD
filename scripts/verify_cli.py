@@ -7,23 +7,66 @@ import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
+from typing import NamedTuple, Optional
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "fixtures"
+
+
+class RegisterCheck(NamedTuple):
+    peripheral: str
+    register: str
+    field: Optional[str] = None
+    array_index: Optional[int] = None
+
+
 REFERENCES = (
     (
         "ARM_Example.svd",
         "https://raw.githubusercontent.com/ARM-software/CMSIS_5/5.9.0/CMSIS/Utilities/ARM_Example.svd",
         "d1a385a7e6792ea99211e17cc507c51a6641ed5356d1e156cf97471f9c030eb8",
         33,
+        (RegisterCheck("TIMER0", "RELOAD[%s]", array_index=3),),
     ),
     (
         "STM32F407.svd",
         "https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/c65f8551e57c770344d229dcaa0bf838fa29aff4/data/STMicro/STM32F407.svd",
         "e2afca4f03f654225886d8508551cb7ac8f3c95ee28f18953aad466ecb56e6d6",
         1540,
+        (RegisterCheck("RCC", "CR", "PLLI2SRDY"),),
+    ),
+    (
+        "nrf52840.svd",
+        "https://raw.githubusercontent.com/nordicsemi/nrfx/v3.14.0/mdk/nrf52840.svd",
+        "da7c15ccf7f5323101ee5e4a17f10bbf9d1c504902c47fa9d8226fda42ed82b4",
+        2332,
+        (
+            RegisterCheck("APPROTECT", "FORCEPROTECT", "FORCEPROTECT"),
+            RegisterCheck("CC_HOST_RGF", "HOST_IOT_KDR1", "HOST_IOT_KDR1"),
+        ),
+    ),
+    (
+        "nrf5340_application.svd",
+        "https://raw.githubusercontent.com/nordicsemi/nrfx/v3.14.0/mdk/nrf5340_application.svd",
+        "6ae9ca34207a303fae6e0f3fead429531e887a42d3475f8d883d50e68ab8f708",
+        9956,
+        (RegisterCheck("CACHE_S", "DEBUGLOCK", "DEBUGLOCK"),),
+    ),
+    (
+        "RP2040.svd",
+        "https://raw.githubusercontent.com/raspberrypi/pico-sdk/2.2.0/src/rp2040/hardware_regs/RP2040.svd",
+        "49f53398e0496b6de0849faf17a9f4e58565af311b98b727e4ebeee964619bc6",
+        1182,
+        (RegisterCheck("RESETS", "RESET", "USBCTRL"),),
+    ),
+    (
+        "RP2350.svd",
+        "https://raw.githubusercontent.com/raspberrypi/pico-sdk/2.2.0/src/rp2350/hardware_regs/RP2350.svd",
+        "f1180d39bbc0e7c01b1a418bc61493c8450e25732f33bf2b0df381255078014c",
+        3029,
+        (RegisterCheck("RESETS", "RESET", "USBCTRL"),),
     ),
 )
 
@@ -122,46 +165,68 @@ def verified_reference(directory, name, url, expected_hash):
     if not dest.exists():
         request = Request(url, headers={"User-Agent": "MoonSVD-reproducibility"})
         with urlopen(request, timeout=30) as response:
-            data = response.read(4 * 1024 * 1024 + 1)
-        assert len(data) <= 4 * 1024 * 1024, name
+            data = response.read(8 * 1024 * 1024 + 1)
+        assert len(data) <= 8 * 1024 * 1024, name
         assert sha256(data).hexdigest() == expected_hash, name
         dest.write_bytes(data)
     assert sha256(dest.read_bytes()).hexdigest() == expected_hash, name
     return dest
 
 
-def verify_reference(directory, name, url, digest, expected_count):
-    path = verified_reference(directory, name, url, digest)
-    source = ElementTree.parse(path).getroot()
-    report = cli("inspect", path)
-    assert source.findtext("name") == report["name"]
-    assert len(report["registers"]) == expected_count
-    assert not cli("check", path)["findings"]
-    if name == "ARM_Example.svd":
-        peripheral = source.find("./peripherals/peripheral[name='TIMER0']")
-        raw = peripheral.find("./registers/register[name='RELOAD[%s]']")
-        wanted = "TIMER0.RELOAD[3]"
-        array_delta = 3 * int(raw.findtext("dimIncrement"), 0)
-    else:
-        peripheral = source.find("./peripherals/peripheral[name='RCC']")
-        raw = peripheral.find("./registers/register[name='CR']")
-        wanted = "RCC.CR"
-        array_delta = 0
-    expected = (
+def canonical_access(access):
+    return {"writeonce": "writeOnce", "read-writeonce": "read-writeOnce"}.get(
+        access, access
+    )
+
+
+def verify_register(path, source, check):
+    peripheral = source.find(f"./peripherals/peripheral[name='{check.peripheral}']")
+    raw = peripheral.find(f"./registers/register[name='{check.register}']")
+    concrete_name = check.register
+    array_delta = 0
+    if check.array_index is not None:
+        concrete_name = concrete_name.replace("%s", str(check.array_index))
+        array_delta = check.array_index * int(raw.findtext("dimIncrement"), 0)
+    wanted = f"{check.peripheral}.{concrete_name}"
+    address = (
         int(peripheral.findtext("baseAddress"), 0)
         + int(raw.findtext("addressOffset"), 0)
         + array_delta
     )
     register = cli("lookup", path, wanted)
-    assert int(register["address"], 16) == expected
+    assert int(register["address"], 16) == address, wanted
     assert int(register["resetValue"], 16) == int(raw.findtext("resetValue"), 0)
-    if wanted == "RCC.CR":
-        target = raw.find("./fields/field[name='PLLI2SRDY']")
-        field = next(item for item in register["fields"] if item["name"] == "PLLI2SRDY")
-        assert int(field["bitOffset"]) == int(target.findtext("bitOffset"))
-        assert int(field["bitWidth"]) == int(target.findtext("bitWidth"))
-        assert field["access"] == target.findtext("access")
-    print(f"{report['name']}: {expected_count} registers; {wanted} = {expected:#x}")
+    access = canonical_access(
+        raw.findtext("access") or peripheral.findtext("access") or source.findtext("access")
+    )
+    assert register["access"] == access, wanted
+    if check.field is not None:
+        target = raw.find(f"./fields/field[name='{check.field}']")
+        field = next(item for item in register["fields"] if item["name"] == check.field)
+        if target.find("bitRange") is not None:
+            high, offset = map(int, target.findtext("bitRange").strip("[]").split(":"))
+            width = high - offset + 1
+        elif target.find("lsb") is not None:
+            offset = int(target.findtext("lsb"))
+            width = int(target.findtext("msb")) - offset + 1
+        else:
+            offset = int(target.findtext("bitOffset"))
+            width = int(target.findtext("bitWidth", "1"))
+        assert int(field["bitOffset"]) == offset, wanted
+        assert int(field["bitWidth"]) == width, wanted
+        assert field["access"] == canonical_access(target.findtext("access") or access), wanted
+    return f"{wanted} = {address:#x}"
+
+
+def verify_reference(directory, name, url, digest, expected_count, checks):
+    path = verified_reference(directory, name, url, digest)
+    source = ElementTree.parse(path).getroot()
+    report = cli("check", path)
+    assert report["device"] == source.findtext("name")
+    assert report["registers"] == expected_count
+    assert not report["findings"]
+    verified = ", ".join(verify_register(path, source, check) for check in checks)
+    print(f"{report['device']}: {expected_count} registers; {verified}")
 
 
 def main():
@@ -169,7 +234,7 @@ def main():
     parser.add_argument(
         "--official",
         action="store_true",
-        help="also verify pinned Arm and STM32 reference files",
+        help="also verify pinned Arm, STM32, Nordic and Raspberry Pi reference files",
     )
     parser.add_argument(
         "--reference-dir",

@@ -52,3 +52,24 @@ test "invalid effective address and unsupported addressing raise typed errors" {
     }
   }
 }
+
+///|
+test "bus width is only a fallback when no explicit register size exists" {
+  let device = "<device><name>D</name><width>128</width>"
+  let registers = "<peripherals><peripheral><name>P</name><baseAddress>0</baseAddress><registers><register><name>R</name><addressOffset>0</addressOffset>"
+  let end = "</register></registers></peripheral></peripherals></device>"
+  let device_default = @moonsvd.parse(
+    device + "<size>32</size>" + registers + end,
+  )
+  assert_eq(device_default.registers[0].size, 32)
+  let register_size = @moonsvd.parse(
+    device + registers + "<size>16</size>" + end,
+  )
+  assert_eq(register_size.registers[0].size, 16)
+  try @moonsvd.parse(device + registers + end) catch {
+    error =>
+      assert_true(error.message().contains("size must be between 1 and 64"))
+  } noraise {
+    _ => fail("expected an unsupported effective register size to fail")
+  }
+}

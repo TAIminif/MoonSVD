@@ -81,3 +81,29 @@ test "reject invalid side effects and malformed write constraints with source lo
     }
   }
 }
+
+///|
+test "Nordic write-once spellings preserve field inheritance and produce no diff" {
+  let canonical =
+    #|<register><name>R</name><addressOffset>0</addressOffset><access>read-writeOnce</access><fields>
+    #|<field><name>F</name><bitOffset>0</bitOffset><access>writeOnce</access></field>
+    #|<field><name>G</name><bitOffset>1</bitOffset></field>
+    #|</fields></register>
+  let vendor = canonical.replace_all(old="Once", new="once")
+  let before = access_device(canonical)
+  let after = access_device(vendor)
+  let register = after.find("P.R").unwrap()
+  assert_eq(register.access, Some("read-writeOnce"))
+  assert_eq(register.fields[0].access, Some("writeOnce"))
+  assert_eq(register.fields[1].access, Some("read-writeOnce"))
+  assert_true(before.diff(after).is_empty())
+  let unknown = canonical.replace_all(
+    old="read-writeOnce",
+    new="read-Writeonce",
+  )
+  try access_device(unknown) catch {
+    error => assert_true(error.message().contains("unknown register access"))
+  } noraise {
+    _ => fail("expected an unknown access token to fail")
+  }
+}

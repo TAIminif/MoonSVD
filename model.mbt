@@ -77,6 +77,9 @@ fn checked_access(
         | "read-write"
         | "writeOnce"
         | "read-writeOnce" => access
+        // Nordic nrfx uses these two lowercase spellings.
+        "writeonce" => Some("writeOnce")
+        "read-writeonce" => Some("read-writeOnce")
         _ => raise node.invalid("unknown register access '\{value}'")
       }
   }
@@ -139,6 +142,7 @@ fn Resolved::range(self : Resolved) -> (UInt64, UInt64) raise SvdError {
 ///|
 priv struct Expansion {
   resolver : Resolver
+  bus_width : UInt64?
   names : Map[String, Bool]
   name_budget : NameBudget
   peripherals : Array[String]
@@ -232,7 +236,11 @@ fn Expansion::visit(
     if node.name == "register" {
       let size = match defaults.size {
         Some(value) => value
-        None => raise node.invalid("missing effective register size")
+        None =>
+          match checked_size(self.bus_width, None, node) {
+            Some(value) => value
+            None => raise node.invalid("missing effective register size")
+          }
       }
       let behavior = item.behavior(None)
       let alternate_register = item.text("alternateRegister")
@@ -282,18 +290,19 @@ pub fn parse(input : String) -> Device raise SvdError {
   if unit != 8 {
     raise node.invalid("only 8-bit addressable units are supported")
   }
+  let bus_width = node.num("width")
+  if bus_width == Some(0UL) {
+    raise node.invalid("device bus width must be positive")
+  }
   let defaults : RegisterDefaults = {
-    size: checked_size(
-      node.num("size"),
-      checked_size(node.num("width"), None, node),
-      node,
-    ),
+    size: checked_size(node.num("size"), None, node),
     access: checked_access(node.property("access"), None, node),
     reset_value: node.num("resetValue"),
     reset_mask: node.num("resetMask"),
   }
   let expansion : Expansion = {
     resolver: Resolver::new(schema),
+    bus_width,
     names: Map([]),
     name_budget: NameBudget::new(),
     peripherals: [],

@@ -22,7 +22,9 @@ python scripts/verify_cli.py --official
 - `fixtures/` 中的文件为本项目编写，并随项目许可证分发。检索、错误校验和版本比较可完全离线运行。两个 `status-*.svd` 使用相同的寄存器地址与位宽，独立检查 CLI 是否报告读副作用、位域写入方式及写入范围的变化。
 - Arm `ARM_Example.svd` 来自 CMSIS 5.9.0 示例，带有文件内的版权和许可说明。样本解析出 33 个寄存器，核对 `TIMER0.RELOAD[3]` 的地址与复位值，并检查同地址的两个读写视图。 [原始示例](https://github.com/ARM-software/CMSIS_5/blob/5.9.0/CMSIS/Utilities/ARM_Example.svd)
 - STM32F407 文件来自 CMSIS-SVD Data 的固定提交。样本解析出 1,540 个寄存器，核对 `RCC.CR` 的地址与复位值及 `PLLI2SRDY` 位域位置。 [固定样本](https://github.com/cmsis-svd/cmsis-svd-data/blob/c65f8551e57c770344d229dcaa0bf838fa29aff4/data/STMicro/STM32F407.svd)
-- 两个外部样本均由验证脚本下载到临时目录，按脚本所列 SHA-256 核对，仓库只保留引用和验证方法。
+- Nordic nrfx v3.14.0 的 `nrf52840.svd` 和 `nrf5340_application.svd` 分别解析出 2,332 和 9,956 个寄存器。查询 `APPROTECT.FORCEPROTECT`、`CC_HOST_RGF.HOST_IOT_KDR1` 和 `CACHE_S.DEBUGLOCK`，核对两种写一次权限拼写与位域继承。 [nRF52840](https://github.com/nordicsemi/nrfx/blob/v3.14.0/mdk/nrf52840.svd) · [nRF5340](https://github.com/nordicsemi/nrfx/blob/v3.14.0/mdk/nrf5340_application.svd)
+- Raspberry Pi Pico SDK 2.2.0 的 RP2040 和 RP2350 分别解析出 1,182 和 3,029 个寄存器。查询两份文件的 `RESETS.RESET`，核对地址、复位值及 `USBCTRL` 位域。 [RP2040](https://github.com/raspberrypi/pico-sdk/blob/2.2.0/src/rp2040/hardware_regs/RP2040.svd) · [RP2350](https://github.com/raspberrypi/pico-sdk/blob/2.2.0/src/rp2350/hardware_regs/RP2350.svd)
+- 外部样本由验证脚本下载，按脚本所列 SHA-256 核对，仓库保留引用和验证方法。用 `--reference-dir` 指定本地目录可复用已下载样本。
 - `Milky2018/xml@0.4.1` 采用 Apache-2.0，通过 MoonBit 模块依赖获取。Python 对照使用标准库的 XML 和 SHA-256 实现。 [XML 包](https://mooncakes.io/docs/Milky2018/xml@0.4.1)
 
 ## 初次准备

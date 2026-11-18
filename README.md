@@ -41,6 +41,7 @@ moon run examples/inspect
 
 - 以字节寻址的 CMSIS-SVD XML，解析外设、嵌套寄存器组、寄存器和位域。支持外设／组／寄存器／位域的 `derivedFrom` 引用、`dim` 数组，以及设备到寄存器的属性默认值。
 - 支持三种位域范围写法。提供按路径和起始地址查询、位域提取，以及寄存器地址、位宽、访问权限、复位信息、别名和位域布局的语义比较。
+- 寄存器位宽优先取显式声明和继承的 `size`，缺省时使用设备 `width`，支持 1 至 64 位的有效寄存器位宽。兼容 Nordic nrfx 中 `writeonce` 和 `read-writeonce`，输出采用 CMSIS-SVD 的标准拼写。
 - 读取并比较寄存器和位域的 `readAction`、`modifiedWriteValues`、`writeConstraint`。写约束支持按读值写入、使用枚举值和数值范围，寄存器约束可作为位域默认值。
 - 校验字段越界和重叠、复位值位宽、同一外设内的寄存器重叠及寄存器别名。允许合法的同地址读写分视图。解析错误包含源行列，校验结果包含来源行和完整路径。
 - CLI 读取 UTF-8、最多 16 MiB 的常规文件。库在解析 XML 前禁用 DTD，限制 XML 层级和继承链各最多 64 层，并限制展开实例的数量、名称大小和继承合并的工作量。超出限额的输入会得到明确的解析错误。详见[验证说明](docs/verification.md)。
@@ -56,6 +57,6 @@ python scripts/verify_cli.py
 python scripts/verify_cli.py --official
 ```
 
-默认脚本验证仓库内的原创样例。带 `--official` 时，脚本校验 Arm 示例及 STM32F407 文件的 SHA-256，用 Python XML 读取结果独立核对选定的寄存器地址、复位值及位域。来源、版本及复现细节见 [验证说明](docs/verification.md)。
+默认脚本验证仓库内的原创样例。带 `--official` 时，脚本核对 Arm、STM32、Nordic 和 Raspberry Pi 共六份文件的 SHA-256，用 Python XML 读取结果独立核对选定的寄存器地址、复位值、访问权限及位域。来源、版本及复现细节见 [验证说明](docs/verification.md)。
 
 源代码采用 [Apache-2.0](LICENSE)。项目以 [Open-CMSIS-SVD 规范](https://open-cmsis-pack.github.io/svd-spec/main/index.html)为依据，复用 [Milky2018/xml](https://github.com/moonbit-community/xml-mbt) 作为通用 XML 解析依赖。
