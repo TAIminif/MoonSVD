@@ -4,7 +4,18 @@ pub enum WriteConstraint {
   AsRead(Bool)
   Enumerated(Bool)
   Range(UInt64, UInt64)
-} derive(Eq)
+}
+
+///|
+pub impl Eq for WriteConstraint with fn equal(self, other) {
+  match (self, other) {
+    (AsRead(left), AsRead(right)) | (Enumerated(left), Enumerated(right)) =>
+      left == right
+    (Range(left_low, left_high), Range(right_low, right_high)) =>
+      left_low == right_low && left_high == right_high
+    _ => false
+  }
+}
 
 ///|
 pub extend WriteConstraint with Eq::{equal, not_equal}

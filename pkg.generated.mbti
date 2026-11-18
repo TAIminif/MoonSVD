@@ -88,9 +88,10 @@ pub enum WriteConstraint {
   AsRead(Bool)
   Enumerated(Bool)
   Range(UInt64, UInt64)
-} derive(Eq)
+}
 pub fn WriteConstraint::equal(Self, Self) -> Bool
 pub fn WriteConstraint::not_equal(Self, Self) -> Bool
+pub impl Eq for WriteConstraint
 
 // Type aliases
 
