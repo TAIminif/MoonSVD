@@ -13,6 +13,9 @@ fn substitutions(
   let values : Array[String] = []
   if raw is Some(text) {
     for segment in text.split(",") {
+      if segment.length() > 2 * local_name_limit + 32 {
+        raise node.invalid("dimIndex entry is too long")
+      }
       let item = segment.trim().to_owned()
       let range = item.split("-").to_array()
       if range.length() == 2 {
@@ -101,6 +104,11 @@ fn expand_instances(
       let labels = substitutions(raw_index, count.to_int(), node)
       let instances = []
       for i, label in labels {
+        if name.length() + label.length() - 2 > local_name_limit {
+          raise node.invalid(
+            "expanded array name exceeds 256 UTF-16 code units",
+          )
+        }
         instances.push({
           name: name.replace_all(old="%s", new=label),
           offset: checked_mul(i.to_uint64(), stride, node),

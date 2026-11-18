@@ -33,3 +33,32 @@ test "array definitions fail before expanding invalid indices" {
     }
   }
 }
+
+///|
+test "SVD bounds names before storing declarations or array instances" {
+  let long_name = "A".repeat(256)
+  let prefix = "<device><name>D</name><peripherals><peripheral><name>"
+  let suffix = "</name><baseAddress>0</baseAddress></peripheral></peripherals></device>"
+  assert_eq(parse(prefix + long_name + suffix).peripherals, [long_name])
+  try parse(prefix + long_name + "A" + suffix) catch {
+    Invalid(_, _, detail) =>
+      assert_eq(detail, "SVD local name exceeds 256 UTF-16 code units")
+  } noraise {
+    _ => fail("expected oversized local identifier to fail")
+  }
+  let at = read_tree("<x/>")
+  try expand_instances("R%s", Some(1UL), Some(1UL), Some(long_name), at) catch {
+    Invalid(_, _, detail) =>
+      assert_eq(detail, "expanded array name exceeds 256 UTF-16 code units")
+  } noraise {
+    _ => fail("expected oversized array expansion to fail")
+  }
+  let budget : NameBudget = { remaining: 3, }
+  budget.reserve("A.B", at)
+  try budget.reserve("C", at) catch {
+    Invalid(_, _, detail) =>
+      assert_eq(detail, "SVD cumulative name limit exceeded")
+  } noraise {
+    _ => fail("expected cumulative name budget to be exhausted")
+  }
+}

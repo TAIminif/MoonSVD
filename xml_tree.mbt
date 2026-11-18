@@ -16,6 +16,7 @@ priv struct Node {
   attributes : Map[String, String]
   children : Array[Node]
   content : StringBuilder
+  mut text_cache : String?
   line : Int32
   column : Int32
 }
@@ -36,6 +37,7 @@ fn new_node(element : @xml.XmlElement, at : @xml.SourcePosition) -> Node {
     attributes,
     children: [],
     content: StringBuilder(),
+    text_cache: None,
     line: at.line,
     column: at.column,
   }
@@ -61,10 +63,66 @@ fn attach_node(
 }
 
 ///|
+fn dtd_location(input : String, offset : Int32) -> SvdError {
+  let mut line = 1
+  let mut column = 1
+  let mut was_cr = false
+  for char in input[:offset] {
+    match char {
+      '\r' => {
+        line += 1
+        column = 1
+      }
+      '\n' => {
+        if !was_cr {
+          line += 1
+        }
+        column = 1
+      }
+      _ => column += 1
+    }
+    was_cr = char == '\r'
+  }
+  Invalid(line, column, "DTD is disabled")
+}
+
+///|
+/// Reject a document type before the XML reader processes its internal subset.
+/// Ordinary text inside comments, processing instructions and CDATA is skipped.
+fn reject_dtd(input : String) -> Unit raise SvdError {
+  if !input.contains("<!DOCTYPE") {
+    return
+  }
+  let mut cursor = 0
+  while input[cursor:].find("<") is Some(distance) {
+    cursor += distance
+    let token = input[cursor:]
+    let (body, closer) = if token.strip_prefix("<!--") is Some(body) {
+      (body, "-->")
+    } else if token.strip_prefix("<![CDATA[") is Some(body) {
+      (body, "]]>")
+    } else if token.strip_prefix("<?") is Some(body) {
+      (body, "?>")
+    } else {
+      if token.has_prefix("<!DOCTYPE") {
+        raise dtd_location(input, cursor)
+      }
+      cursor += 1
+      continue
+    }
+    match body.find(closer) {
+      Some(end) => cursor = body.start_offset() + end + closer.length()
+      None => return
+    }
+  }
+}
+
+///|
 fn read_tree(input : String) -> Node raise SvdError {
   if input.length() > 8_388_608 {
     raise Invalid(1, 1, "input exceeds 8,388,608 UTF-16 code units")
   }
+  reject_dtd(input)
   let reader = @xml.Reader::from_string(input)
   let stack : Array[Node] = []
   let mut root : Node? = None
@@ -124,7 +182,12 @@ fn Node::text(self : Node) -> String raise SvdError {
   if !self.children.is_empty() {
     raise self.invalid("expected simple text in <\{self.name}>")
   }
-  self.content.to_string().trim().to_owned()
+  if self.text_cache is Some(value) {
+    return value
+  }
+  let value = self.content.to_string().trim().to_owned()
+  self.text_cache = Some(value)
+  value
 }
 
 ///|

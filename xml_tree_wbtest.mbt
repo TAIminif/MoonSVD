@@ -40,3 +40,24 @@ test "XML duplicate and nested scalar elements fail" {
     }
   }
 }
+
+///|
+test "DTD rejection precedes subset parsing and locates the declaration" {
+  let input = "<?xml version=\"1.0\"?>\r\n  <!DOCTYPE device [<!ATTLIST bad missing>]><device/>"
+  try read_tree(input) catch {
+    Invalid(line, column, detail) => {
+      assert_eq(line, 2)
+      assert_eq(column, 3)
+      assert_eq(detail, "DTD is disabled")
+    }
+  } noraise {
+    _ => fail("expected declaration rejection")
+  }
+}
+
+///|
+test "a DOCTYPE word inside comments, CDATA and processing instructions is data" {
+  let input = "<!-- <!DOCTYPE ignored> --><?hint <!DOCTYPE ignored>?><device><name><![CDATA[<!DOCTYPE text>]]></name></device>"
+  let root = read_tree(input)
+  assert_eq(root.property("name"), Some("<!DOCTYPE text>"))
+}

@@ -9,7 +9,7 @@ test "inheritance resolves forward and qualified references" {
     #|</peripherals></device>
   let resolver = Resolver::new(read_schema(input))
   let peripheral = resolver.resolve("B")
-  assert_eq(peripheral.children, ["A.ORIG", "B.NEW"])
+  assert_eq(peripheral.children.paths, ["A.ORIG", "B.NEW"])
   assert_eq(peripheral.num("size"), Some(16UL))
   assert_eq(peripheral.num("baseAddress"), Some(32UL))
   let register = resolver.resolve("B.NEW")
@@ -48,4 +48,61 @@ test "derived names resolve a register inherited into the current scope" {
   let reg = parse(input).find("B.NEW").unwrap()
   assert_eq(reg.address, 12UL)
   assert_eq(reg.access, Some("read-only"))
+}
+
+///|
+fn inheritance_chain(length : Int32, base_first : Bool) -> String {
+  let document = StringBuilder()
+  document.write_string("<device><name>D</name><peripherals>")
+  for position in 0..<length {
+    let index = if base_first { position } else { length - position - 1 }
+    if index == 0 {
+      document.write_string(
+        "<peripheral><name>P0</name><baseAddress>0</baseAddress></peripheral>",
+      )
+    } else {
+      let base = index - 1
+      document.write_string(
+        "<peripheral derivedFrom=\"P\{base}\"><name>P\{index}</name></peripheral>",
+      )
+    }
+  }
+  document.write_string("</peripherals></device>")
+  document.to_string()
+}
+
+///|
+test "inheritance depth is enforced with and without cached bases" {
+  for base_first in [true, false] {
+    let accepted = parse(inheritance_chain(64, base_first))
+    assert_eq(accepted.peripherals.length(), 64)
+    try parse(inheritance_chain(65, base_first)) catch {
+      Invalid(_, _, detail) =>
+        assert_eq(detail, "inheritance depth limit exceeded")
+    } noraise {
+      _ =>
+        fail("expected the same inheritance limit in both declaration orders")
+    }
+  }
+}
+
+///|
+test "inherited child tables are shared and overrides consume the merge budget" {
+  let input =
+    #|<device><name>D</name><peripherals>
+    #|<peripheral><name>A</name><registers><register><name>REG</name></register></registers></peripheral>
+    #|<peripheral derivedFrom="A"><name>B</name></peripheral>
+    #|<peripheral derivedFrom="B"><name>C</name><registers><register><name>REG</name></register></registers></peripheral>
+    #|</peripherals></device>
+  let resolver = Resolver::new(read_schema(input))
+  resolver.remaining_child_slots = 1
+  let derived = resolver.resolve("B")
+  assert_eq(resolver.child_lookup(derived.children, "REG"), Some("A.REG"))
+  assert_eq(resolver.remaining_child_slots, 1)
+  try resolver.resolve("C") catch {
+    Invalid(_, _, detail) =>
+      assert_eq(detail, "SVD inherited children limit exceeded")
+  } noraise {
+    _ => fail("expected a merged child table to use the budget")
+  }
 }

@@ -16,6 +16,11 @@ fn digit_value(c : Char) -> Int32 {
 
 ///|
 fn number(raw : String, node : Node, label : String) -> UInt64 raise SvdError {
+  if raw.length() > 128 {
+    raise node.invalid(
+      "numeric value for \{label} exceeds 128 UTF-16 code units",
+    )
+  }
   let chars = raw.to_array()
   let mut start = 0
   let mut end = chars.length()

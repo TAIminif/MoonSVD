@@ -1,20 +1,36 @@
 ///|
+priv struct ResolvedChildren {
+  paths : Array[String]
+  mut by_name : Map[String, String]?
+}
+
+///|
 priv struct Resolved {
   declaration : Declaration
   values : Map[String, Node]
-  children : Array[String]
+  children : ResolvedChildren
+  inheritance_length : Int32
 }
+
+///|
+let inheritance_limit = 64
 
 ///|
 priv struct Resolver {
   schema : Schema
   active : Map[String, Bool]
   cached : Map[String, Resolved]
+  mut remaining_child_slots : Int32
 }
 
 ///|
 fn Resolver::new(schema : Schema) -> Resolver {
-  { schema, active: Map([]), cached: Map([]), }
+  {
+    schema,
+    active: Map([]),
+    cached: Map([]),
+    remaining_child_slots: 1_000_000,
+  }
 }
 
 ///|
@@ -32,10 +48,18 @@ fn Resolver::reference(
   if reference == "" {
     raise item.node.invalid("empty derivedFrom in '\{item.path}'")
   }
+  if reference.length() > qualified_name_limit {
+    raise item.node.invalid(
+      "derivedFrom reference exceeds 4096 UTF-16 code units",
+    )
+  }
   let target = if item.scope != "" && !reference.contains(".") {
     "\{item.scope}.\{reference}"
   } else {
     reference
+  }
+  if target.length() > qualified_name_limit {
+    raise item.node.invalid("derivedFrom path exceeds 4096 UTF-16 code units")
   }
   match self.effective_path(target, depth) {
     Some(path) if self.definition(path).node.name == item.node.name => path
@@ -46,6 +70,26 @@ fn Resolver::reference(
         "unknown derivedFrom '\{target}' in '\{item.path}'",
       )
   }
+}
+
+///|
+fn Resolver::child_lookup(
+  self : Resolver,
+  children : ResolvedChildren,
+  name : String,
+) -> String? {
+  let index = match children.by_name {
+    Some(index) => index
+    None => {
+      let index = Map([])
+      for path in children.paths {
+        index[self.definition(path).name] = path
+      }
+      children.by_name = Some(index)
+      index
+    }
+  }
+  index.get(name)
 }
 
 ///|
@@ -63,16 +107,8 @@ fn Resolver::effective_path(
     return None
   }
   for i in 1..<parts.length() {
-    let local_name = parts[i].to_owned()
     let parent = self.resolve(path, depth~)
-    let mut found = None
-    for child in parent.children {
-      if self.definition(child).name == local_name {
-        found = Some(child)
-        break
-      }
-    }
-    match found {
+    match self.child_lookup(parent.children, parts[i].to_owned()) {
       Some(child) => path = child
       None => return None
     }
@@ -91,19 +127,37 @@ fn geometry_scheme(name : String) -> Int32 {
 }
 
 ///|
+fn supported_value(tag : String) -> Bool {
+  match tag {
+    "dim"
+    | "dimIncrement"
+    | "dimIndex"
+    | "baseAddress"
+    | "addressOffset"
+    | "size"
+    | "access"
+    | "resetValue"
+    | "resetMask"
+    | "bitRange"
+    | "lsb"
+    | "msb"
+    | "bitOffset"
+    | "bitWidth"
+    | "alternateRegister"
+    | "alternateGroup"
+    | "modifiedWriteValues"
+    | "readAction"
+    | "writeConstraint" => true
+    _ => false
+  }
+}
+
+///|
 fn declaration_values(node : Node) -> Map[String, Node] raise SvdError {
   let values = Map([])
   let mut scheme = 0
   for child in node.children {
-    if child.name == "name" ||
-      child.name == "registers" ||
-      child.name == "fields" ||
-      child.name == "cluster" ||
-      child.name == "register" ||
-      child.name == "field" ||
-      child.name == "addressBlock" ||
-      child.name == "interrupt" ||
-      child.name == "enumeratedValues" {
+    if !supported_value(child.name) {
       continue
     }
     if values.contains(child.name) {
@@ -126,6 +180,38 @@ fn declaration_values(node : Node) -> Map[String, Node] raise SvdError {
 }
 
 ///|
+fn Resolver::merge_children(
+  self : Resolver,
+  base : ResolvedChildren,
+  declaration : Declaration,
+) -> ResolvedChildren raise SvdError {
+  if declaration.children.is_empty() {
+    return base
+  }
+  if base.paths.is_empty() {
+    return { paths: declaration.children, by_name: None, }
+  }
+  let slots = base.paths.length() + declaration.children.length()
+  if slots > self.remaining_child_slots {
+    raise declaration.node.invalid("SVD inherited children limit exceeded")
+  }
+  self.remaining_child_slots -= slots
+  let children = base.paths.copy()
+  let positions = Map([])
+  for i, path in children {
+    positions[self.definition(path).name] = i
+  }
+  for child in declaration.children {
+    let name = self.definition(child).name
+    match positions.get(name) {
+      Some(index) => children[index] = child
+      None => children.push(child)
+    }
+  }
+  { paths: children, by_name: None, }
+}
+
+///|
 fn Resolver::resolve(
   self : Resolver,
   path : String,
@@ -136,7 +222,7 @@ fn Resolver::resolve(
   }
   let declaration = self.definition(path)
   let node = declaration.node
-  if depth >= 64 {
+  if depth >= inheritance_limit {
     raise node.invalid("inheritance depth limit exceeded")
   }
   if self.active.contains(path) {
@@ -145,10 +231,19 @@ fn Resolver::resolve(
   self.active[path] = true
   let own_values = declaration_values(node)
   let result = match node.attributes.get("derivedFrom") {
-    None => { declaration, values: own_values, children: declaration.children, }
+    None =>
+      {
+        declaration,
+        values: own_values,
+        children: { paths: declaration.children, by_name: None, },
+        inheritance_length: 1,
+      }
     Some(reference) => {
       let key = self.reference(declaration, reference, depth + 1)
       let base = self.resolve(key, depth=depth + 1)
+      if base.inheritance_length >= inheritance_limit {
+        raise node.invalid("inheritance depth limit exceeded")
+      }
       let values = Map([])
       let mut new_geometry = 0
       for tag, _ in own_values {
@@ -169,19 +264,12 @@ fn Resolver::resolve(
       for tag, value in own_values {
         values[tag] = value
       }
-      let children = base.children.copy()
-      let positions = Map([])
-      for i, base_child in children {
-        positions[self.definition(base_child).name] = i
+      {
+        declaration,
+        values,
+        children: self.merge_children(base.children, declaration),
+        inheritance_length: base.inheritance_length + 1,
       }
-      for child in declaration.children {
-        let name = self.definition(child).name
-        match positions.get(name) {
-          Some(index) => children[index] = child
-          None => children.push(child)
-        }
-      }
-      { declaration, values, children, }
     }
   }
   self.active.remove(path)
@@ -192,7 +280,13 @@ fn Resolver::resolve(
 ///|
 fn Resolved::text(self : Resolved, tag : String) -> String? raise SvdError {
   match self.values.get(tag) {
-    Some(node) => Some(node.text())
+    Some(node) => {
+      let value = node.text()
+      if tag != "dimIndex" && value.length() > qualified_name_limit {
+        raise node.invalid("<\{tag}> exceeds 4096 UTF-16 code units")
+      }
+      Some(value)
+    }
     None => None
   }
 }

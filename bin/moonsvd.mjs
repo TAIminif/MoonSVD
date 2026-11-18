@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readSync, statSync } from 'node:fs';
 
 const usage = [
   'MoonSVD commands',
@@ -11,13 +11,19 @@ const usage = [
 
 const byteLimit = 16 * 1024 * 1024;
 
+function checkInputFile(stat) {
+  if (!stat.isFile() || stat.size > byteLimit) {
+    throw new Error('SVD input must be a regular file of at most 16 MiB');
+  }
+}
+
 function readSvd(path) {
-  const file = openSync(path, 'r');
+  checkInputFile(statSync(path));
+  // Nonblocking open also covers a POSIX file replaced by a pipe after stat.
+  const file = openSync(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0));
   try {
     const stat = fstatSync(file);
-    if (!stat.isFile() || stat.size > byteLimit) {
-      throw new Error('SVD input must be a regular file of at most 16 MiB');
-    }
+    checkInputFile(stat);
     const bytes = Buffer.alloc(stat.size + 1);
     let count = 0;
     while (count < bytes.length) {
@@ -30,6 +36,13 @@ function readSvd(path) {
   } finally {
     closeSync(file);
   }
+}
+
+function printError(message) {
+  const printable = message.replace(/[\u0000-\u001f\u007f-\u009f]/g, character =>
+    '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0')
+  );
+  console.error(printable);
 }
 
 async function main(args) {
@@ -55,7 +68,7 @@ async function main(args) {
   const text = readSvd(path);
   const other = command === 'diff' ? readSvd(extra) : (extra ?? '');
   const { code, report } = JSON.parse(bridge.execute(command, text, other));
-  if (report.error) console.error(report.error);
+  if (report.error) printError(report.error);
   else console.log(JSON.stringify(report, null, 2));
   return code;
 }
@@ -63,6 +76,6 @@ async function main(args) {
 main(process.argv.slice(2)).then(code => {
   process.exitCode = code;
 }).catch(error => {
-  console.error(error.message);
+  printError(error.message);
   process.exitCode = 2;
 });

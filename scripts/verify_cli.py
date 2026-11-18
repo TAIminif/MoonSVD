@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -76,10 +77,21 @@ def verify_fixtures():
     assert changes[1]["fieldChanges"] == []
     assert not cli("diff", v2, v2)["changes"]
     cli("lookup", v1, "MISSING", code=1, diagnostic="was not found")
+    cli("lookup", v1, "bad\nname", code=1, diagnostic="bad\\u000aname")
     with TemporaryDirectory(prefix="moonsvd-malformed-") as work:
         malformed = Path(work, "broken.svd")
         malformed.write_text("<device><name></device>", encoding="utf-8")
         cli("check", malformed, code=2, diagnostic="line 1")
+        malformed.write_bytes(b"<device>\xff</device>")
+        cli("check", malformed, code=2, diagnostic="utf-8")
+        with malformed.open("wb") as stream:
+            stream.truncate(16 * 1024 * 1024 + 1)
+        cli("check", malformed, code=2, diagnostic="at most 16 MiB")
+        cli("check", work, code=2, diagnostic="regular file")
+        if hasattr(os, "mkfifo"):
+            pipe = Path(work, "input.svd")
+            os.mkfifo(pipe)
+            cli("check", pipe, code=2, diagnostic="regular file")
 
 
 def verify_access_behavior():

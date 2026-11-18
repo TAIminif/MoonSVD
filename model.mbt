@@ -140,6 +140,7 @@ fn Resolved::range(self : Resolved) -> (UInt64, UInt64) raise SvdError {
 priv struct Expansion {
   resolver : Resolver
   names : Map[String, Bool]
+  name_budget : NameBudget
   peripherals : Array[String]
   registers : Array[Register]
   mut count : Int32
@@ -155,6 +156,7 @@ fn Expansion::record(
   if self.count > 250_000 {
     raise node.invalid("SVD expanded instance limit exceeded")
   }
+  self.name_budget.reserve(path, node)
   if self.names.contains(path) {
     raise node.invalid("expanded name collision '\{path}'")
   }
@@ -233,6 +235,13 @@ fn Expansion::visit(
         None => raise node.invalid("missing effective register size")
       }
       let behavior = item.behavior(None)
+      let alternate_register = item.text("alternateRegister")
+      let alternate_group = item.text("alternateGroup")
+      for label in [alternate_register, alternate_group] {
+        if label is Some(value) {
+          self.name_budget.reserve(value, node)
+        }
+      }
       self.registers.push({
         path: key,
         parent,
@@ -243,10 +252,10 @@ fn Expansion::visit(
         behavior,
         reset_value: defaults.reset_value,
         reset_mask: defaults.reset_mask,
-        alternate_register: item.text("alternateRegister"),
-        alternate_group: item.text("alternateGroup"),
+        alternate_register,
+        alternate_group,
         fields: self.fields(
-          item.children,
+          item.children.paths,
           key,
           defaults.access,
           behavior.write_constraint,
@@ -257,7 +266,7 @@ fn Expansion::visit(
       if node.name == "peripheral" {
         self.peripherals.push(key)
       }
-      for child in item.children {
+      for child in item.children.paths {
         self.visit(child, key, address, defaults, depth + 1)
       }
     }
@@ -286,6 +295,7 @@ pub fn parse(input : String) -> Device raise SvdError {
   let expansion : Expansion = {
     resolver: Resolver::new(schema),
     names: Map([]),
+    name_budget: NameBudget::new(),
     peripherals: [],
     registers: [],
     count: 0,
