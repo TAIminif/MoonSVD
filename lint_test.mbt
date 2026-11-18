@@ -29,3 +29,19 @@ test "an authored alternate register and a peripheral alias do not collide" {
   let device = @moonsvd.parse(input)
   assert_eq(device.lint().length(), 0)
 }
+
+///|
+test "split read and write views are allowed but a second write view conflicts" {
+  let prefix =
+    #|<device><name>Split</name><width>32</width><peripherals>
+    #|<peripheral><name>P</name><baseAddress>0</baseAddress><registers>
+    #|<register><name>A_RD</name><addressOffset>0</addressOffset><access>read-only</access></register>
+    #|<register><name>B_WR</name><addressOffset>0</addressOffset><access>write-only</access></register>
+  let end = "</registers></peripheral></peripherals></device>"
+  assert_true(@moonsvd.parse(prefix + end).lint().is_empty())
+  let extra = "<register><name>C_WR</name><addressOffset>0</addressOffset><access>write-only</access></register>"
+  let findings = @moonsvd.parse(prefix + extra + end).lint()
+  assert_eq(findings.length(), 1)
+  assert_eq(findings[0].path, "P.C_WR")
+  assert_true(findings[0].message.contains("P.B_WR"))
+}

@@ -53,7 +53,9 @@ fn alias_path(reg : Register, target : String) -> String {
 ///|
 fn is_register_alias(a : Register, b : Register) -> Bool {
   a.address == b.address && register_width(a) == register_width(b) &&
-  ((a.alternate_group is Some(left) && b.alternate_group == Some(left) && a.parent == b.parent) ||
+  (((a.access == Some("read-only") && b.access == Some("write-only")) ||
+    (b.access == Some("read-only") && a.access == Some("write-only"))) ||
+  (a.alternate_group is Some(left) && left != "" && b.alternate_group == Some(left) && a.parent == b.parent) ||
   (a.alternate_register is Some(target) && alias_path(a, target) == b.path) ||
   (b.alternate_register is Some(target) && alias_path(b, target) == a.path) ||
   (a.alternate_register is Some(left) && b.alternate_register is Some(right) &&
@@ -91,8 +93,7 @@ pub fn Device::lint(self : Device) -> Array[Diagnostic] {
     registers.sort_by((a, b) => {
       if a.address == b.address { a.path.lexical_compare(b.path) } else { a.address.compare(b.address) }
     })
-    let mut prior : Register? = None
-    let mut prior_end = 0UL
+    let mut active : Array[(UInt64, Register)] = []
     for reg in registers {
       let extent = register_width(reg) - 1UL
       if reg.address > uint_limit - extent {
@@ -100,14 +101,17 @@ pub fn Device::lint(self : Device) -> Array[Diagnostic] {
         continue
       }
       let end = reg.address + extent
-      if prior is Some(previous) && reg.address <= prior_end {
+      active = active.filter(item => item.0 >= reg.address)
+      for (_, previous) in active {
         if !is_register_alias(previous, reg) {
           output.push(finding("register-overlap", reg.path, reg.line, "address range overlaps '\{previous.path}'"))
+          break
         }
       }
-      if prior is None || end > prior_end || reg.address > prior_end {
-        prior = Some(reg)
-        prior_end = end
+      if active.length() == 128 {
+        output.push(finding("overlap-density", reg.path, reg.line, "more than 128 overlapping registers at this address"))
+      } else {
+        active.push((end, reg))
       }
     }
   }
