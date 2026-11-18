@@ -28,7 +28,8 @@ fn same_fields(before : Array[Field], after : Array[Field]) -> Bool {
   for field in after {
     match by_name.get(field.name) {
       Some(old) if old.bit_offset == field.bit_offset &&
-        old.bit_width == field.bit_width && old.access == field.access => ()
+        old.bit_width == field.bit_width &&
+        old.access == field.access => ()
       _ => return false
     }
   }
@@ -77,12 +78,17 @@ pub fn Device::diff(before : Device, after : Device) -> Array[Change] {
       None => ["removed"]
     }
     if !properties.is_empty() {
-      changes.push({ path, before: Some(reg), after: counterpart, properties })
+      changes.push({ path, before: Some(reg), after: counterpart, properties, })
     }
   }
   for path, reg in right {
     if !left.contains(path) {
-      changes.push({ path, before: None, after: Some(reg), properties: ["added"] })
+      changes.push({
+        path,
+        before: None,
+        after: Some(reg),
+        properties: ["added"],
+      })
     }
   }
   changes.sort_by((a, b) => a.path.lexical_compare(b.path))

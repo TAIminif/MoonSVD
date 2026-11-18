@@ -37,9 +37,16 @@ test "invalid effective address and unsupported addressing raise typed errors" {
     #|<register><name>R</name><addressOffset>1</addressOffset></register>
     #|</registers></peripheral></peripherals>
   for units in [8, 16] {
-    let input = "<device><name>D</name><addressUnitBits>\{units}</addressUnitBits>" + fragment + "</device>"
+    let input = "<device><name>D</name><addressUnitBits>\{units}</addressUnitBits>" +
+      fragment +
+      "</device>"
     try @moonsvd.parse(input) catch {
-      error => assert_true(error.message().contains(if units == 8 { "overflows" } else { "addressable" }))
+      error =>
+        assert_true(
+          error
+          .message()
+          .contains(if units == 8 { "overflows" } else { "addressable" }),
+        )
     } noraise {
       _ => fail("invalid device parsed")
     }

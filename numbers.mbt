@@ -2,7 +2,7 @@
 let uint_limit : UInt64 = 18446744073709551615UL
 
 ///|
-fn digit_value(c : Char) -> Int {
+fn digit_value(c : Char) -> Int32 {
   if c >= '0' && c <= '9' {
     c.to_int() - '0'.to_int()
   } else if c >= 'a' && c <= 'f' {
@@ -74,7 +74,7 @@ fn Node::num(self : Node, tag : String) -> UInt64? raise SvdError {
 }
 
 ///|
-fn Node::small(self : Node, tag : String, max : Int) -> Int? raise SvdError {
+fn Node::small(self : Node, tag : String, max : Int32) -> Int32? raise SvdError {
   match self.num(tag) {
     Some(value) => {
       if value > max.to_uint64() {

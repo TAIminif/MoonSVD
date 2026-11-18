@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "TAIminif/moonsvd"
+
+// Values
+pub const FORMAT : String = "CMSIS-SVD"
+
+pub fn parse(String) -> Device raise SvdError
+
+// Errors
+pub suberror SvdError {
+  Invalid(Int, Int, String)
+}
+pub fn SvdError::message(Self) -> String
+
+// Types and methods
+pub struct Change {
+  path : String
+  before : Register?
+  after : Register?
+  properties : Array[String]
+}
+pub fn Change::json(Self) -> Json
+
+pub struct Device {
+  name : String
+  version : String?
+  schema_version : String?
+  peripherals : Array[String]
+  registers : Array[Register]
+}
+pub fn Device::at(Self, UInt64) -> Array[Register]
+pub fn Device::diff(Self, Self) -> Array[Change]
+pub fn Device::find(Self, String) -> Register?
+pub fn Device::json(Self) -> Json
+pub fn Device::lint(Self) -> Array[Diagnostic]
+
+pub struct Diagnostic {
+  code : String
+  path : String
+  line : Int
+  message : String
+}
+pub fn Diagnostic::json(Self) -> Json
+
+pub struct Field {
+  name : String
+  bit_offset : UInt64
+  bit_width : UInt64
+  access : String?
+  line : Int
+}
+
+pub struct Register {
+  path : String
+  parent : String
+  name : String
+  address : UInt64
+  size : Int
+  access : String?
+  reset_value : UInt64?
+  reset_mask : UInt64?
+  alternate_register : String?
+  alternate_group : String?
+  fields : Array[Field]
+  line : Int
+}
+pub fn Register::decode_field(Self, String, UInt64) -> UInt64?
+pub fn Register::json(Self) -> Json
+
+// Type aliases
+
+// Traits

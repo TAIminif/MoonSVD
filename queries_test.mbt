@@ -13,7 +13,10 @@ test "query chip registers by path and exact address with 64-bit field decoding"
   assert_eq(device.at(0x40000000UL).length(), 1)
   assert_true(device.at(0x40000001UL).is_empty())
   assert_true(device.find("CR") is None)
-  assert_eq(reg.decode_field("FULL", 0xF000000000000001UL), Some(0xF000000000000001UL))
+  assert_eq(
+    reg.decode_field("FULL", 0xF000000000000001UL),
+    Some(0xF000000000000001UL),
+  )
   assert_eq(reg.decode_field("TOP", 0xF000000000000001UL), Some(15UL))
   assert_true(reg.decode_field("OUT", 0UL) is None)
 }

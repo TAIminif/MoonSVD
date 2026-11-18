@@ -48,11 +48,14 @@ fn add_declarations(
           raise child.invalid("duplicate definition '\{path}'")
         }
         let children = add_declarations(child, path, declarations)
-        declarations[path] = { path, scope, name, node: child, children }
+        declarations[path] = { path, scope, name, node: child, children, }
         paths.push(path)
-      } else if container.name == "peripherals" || container.name == "registers" ||
+      } else if container.name == "peripherals" ||
+        container.name == "registers" ||
         container.name == "fields" {
-        raise child.invalid("unexpected <\{child.name}> within <\{container.name}>")
+        raise child.invalid(
+          "unexpected <\{child.name}> within <\{container.name}>",
+        )
       }
     }
   }
@@ -71,5 +74,5 @@ fn read_schema(input : String) -> Schema raise SvdError {
   if roots.is_empty() {
     raise device.invalid("expected at least one peripheral")
   }
-  { device, name, roots, declarations }
+  { device, name, roots, declarations, }
 }

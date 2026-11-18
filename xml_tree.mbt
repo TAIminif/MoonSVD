@@ -1,7 +1,7 @@
 ///|
 /// An input error with enough source context to locate it in the SVD.
 pub suberror SvdError {
-  Invalid(Int, Int, String)
+  Invalid(Int32, Int32, String)
 }
 
 ///|
@@ -16,8 +16,8 @@ priv struct Node {
   attributes : Map[String, String]
   children : Array[Node]
   content : StringBuilder
-  line : Int
-  column : Int
+  line : Int32
+  column : Int32
 }
 
 ///|
@@ -95,7 +95,8 @@ fn read_tree(input : String) -> Node raise SvdError {
       Eof =>
         match root {
           Some(node) if stack.is_empty() => return node
-          _ => raise Invalid(at.line, at.column, "expected complete XML document")
+          _ =>
+            raise Invalid(at.line, at.column, "expected complete XML document")
         }
       Decl(..) | PI(..) | Comment(_) => ()
     }

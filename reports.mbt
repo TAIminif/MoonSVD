@@ -31,7 +31,7 @@ fn Field::json(self : Field) -> Json {
     "bitOffset": Json::string(self.bit_offset.to_string()),
     "bitWidth": Json::string(self.bit_width.to_string()),
     "access": optional_string(self.access),
-    "line": self.line.to_json(),
+    "line": Json(self.line),
   }
 }
 
@@ -41,14 +41,14 @@ pub fn Register::json(self : Register) -> Json {
   {
     "path": Json::string(self.path),
     "address": hex(self.address),
-    "size": self.size.to_json(),
+    "size": Json(self.size),
     "access": optional_string(self.access),
     "resetValue": optional_hex(self.reset_value),
     "resetMask": optional_hex(self.reset_mask),
     "alternateRegister": optional_string(self.alternate_register),
     "alternateGroup": optional_string(self.alternate_group),
     "fields": Json::array(self.fields.map(Field::json)),
-    "line": self.line.to_json(),
+    "line": Json(self.line),
   }
 }
 
@@ -68,7 +68,7 @@ pub fn Diagnostic::json(self : Diagnostic) -> Json {
   {
     "code": Json::string(self.code),
     "path": Json::string(self.path),
-    "line": self.line.to_json(),
+    "line": Json(self.line),
     "message": Json::string(self.message),
   }
 }

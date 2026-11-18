@@ -13,21 +13,30 @@ test "XML keeps attributes, text and authored locations" {
 
 ///|
 test "XML failures are typed and DTD is rejected" {
-  for input in [
-    "<device><name></device>",
-    "<device/><device/>",
-    "<!DOCTYPE device [<!ENTITY demo \"x\">]><device>&demo;</device>",
-    "",
-  ] {
-    let result = try? read_tree(input)
-    assert_true(result is Err(Invalid(_, _, _)))
+  for
+    input in [
+      "<device><name></device>", "<device/><device/>", "<!DOCTYPE device [<!ENTITY demo \"x\">]><device>&demo;</device>",
+      "",
+    ] {
+    try read_tree(input) catch {
+      Invalid(_, _, _) => ()
+    } noraise {
+      _ => fail("expected malformed or prohibited XML")
+    }
   }
 }
 
 ///|
 test "XML duplicate and nested scalar elements fail" {
-  let repeated = read_tree("<device><name>A</name><name>B</name></device>")
-  assert_true((try? repeated.property("name")) is Err(Invalid(_, _, _)))
-  let nested = read_tree("<device><name><b>A</b></name></device>")
-  assert_true((try? nested.property("name")) is Err(Invalid(_, _, _)))
+  for
+    input in [
+      "<device><name>A</name><name>B</name></device>", "<device><name><b>A</b></name></device>",
+    ] {
+    let root = read_tree(input)
+    try root.property("name") catch {
+      Invalid(_, _, _) => ()
+    } noraise {
+      _ => fail("expected a scalar XML error")
+    }
+  }
 }

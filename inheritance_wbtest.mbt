@@ -21,10 +21,10 @@ test "inheritance resolves forward and qualified references" {
 test "inheritance diagnoses unknown targets and reference cycles" {
   let prefix = "<device><name>D</name><peripherals>"
   let suffix = "</peripherals></device>"
-  for body in [
-    "<peripheral derivedFrom=\"Z\"><name>A</name></peripheral>",
-    "<peripheral derivedFrom=\"B\"><name>A</name></peripheral><peripheral derivedFrom=\"A\"><name>B</name></peripheral>",
-  ] {
+  for
+    body in [
+      "<peripheral derivedFrom=\"Z\"><name>A</name></peripheral>", "<peripheral derivedFrom=\"B\"><name>A</name></peripheral><peripheral derivedFrom=\"A\"><name>B</name></peripheral>",
+    ] {
     let engine = Resolver::new(read_schema(prefix + body + suffix))
     try engine.resolve("A") catch {
       Invalid(_, _, _) => ()

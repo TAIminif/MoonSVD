@@ -1,18 +1,18 @@
 ///|
-fn reply(code : Int, report : Json) -> String {
-  let result : Json = { "code": code.to_json(), "report": report }
+fn reply(code : Int32, report : Json) -> String {
+  let result : Json = { "code": Json(code), "report": report }
   result.stringify()
 }
 
 ///|
-fn error_reply(code : Int, message : String) -> String {
+fn error_reply(code : Int32, message : String) -> String {
   reply(code, { "error": Json::string(message) })
 }
 
 ///|
 #export_name("execute")
 pub fn execute(command : String, input : String, other : String) -> String {
-  try run_command(command, input, other) catch {
+  run_command(command, input, other) catch {
     error => error_reply(2, error.message())
   }
 }
@@ -35,7 +35,7 @@ fn run_command(
       let findings = device.lint()
       let report : Json = {
         "device": Json::string(device.name),
-        "registers": device.registers.length().to_json(),
+        "registers": Json(device.registers.length()),
         "findings": Json::array(findings.map(@svd.Diagnostic::json)),
       }
       reply(if findings.is_empty() { 0 } else { 1 }, report)

@@ -5,7 +5,7 @@ pub struct Field {
   bit_offset : UInt64
   bit_width : UInt64
   access : String?
-  line : Int
+  line : Int32
 }
 
 ///|
@@ -15,14 +15,14 @@ pub struct Register {
   parent : String
   name : String
   address : UInt64
-  size : Int
+  size : Int32
   access : String?
   reset_value : UInt64?
   reset_mask : UInt64?
   alternate_register : String?
   alternate_group : String?
   fields : Array[Field]
-  line : Int
+  line : Int32
 }
 
 ///|
@@ -37,14 +37,18 @@ pub struct Device {
 
 ///|
 priv struct RegisterDefaults {
-  size : Int?
+  size : Int32?
   access : String?
   reset_value : UInt64?
   reset_mask : UInt64?
 }
 
 ///|
-fn checked_size(value : UInt64?, parent : Int?, node : Node) -> Int? raise SvdError {
+fn checked_size(
+  value : UInt64?,
+  parent : Int32?,
+  node : Node,
+) -> Int32? raise SvdError {
   match value {
     None => parent
     Some(width) => {
@@ -64,8 +68,13 @@ fn checked_access(
 ) -> String? raise SvdError {
   match access {
     None => parent
-    Some("read-only" | "write-only" | "read-write" | "writeOnce" | "read-writeOnce") =>
-      access
+    Some(
+      "read-only"
+      | "write-only"
+      | "read-write"
+      | "writeOnce"
+      | "read-writeOnce"
+    ) => access
     Some(value) => raise node.invalid("unknown register access '\{value}'")
   }
 }
@@ -85,7 +94,11 @@ fn Resolved::defaults(
 }
 
 ///|
-fn bounds(low : UInt64, high : UInt64, node : Node) -> (UInt64, UInt64) raise SvdError {
+fn bounds(
+  low : UInt64,
+  high : UInt64,
+  node : Node,
+) -> (UInt64, UInt64) raise SvdError {
   if high < low {
     raise node.invalid("bit-range high bound precedes its low bound")
   }
@@ -107,7 +120,13 @@ fn Resolved::range(self : Resolved) -> (UInt64, UInt64) raise SvdError {
     }
     raise node.invalid("expected [msb:lsb] in <bitRange>")
   }
-  match (self.num("lsb"), self.num("msb"), self.num("bitOffset"), self.num("bitWidth")) {
+  match
+    (
+      self.num("lsb"),
+      self.num("msb"),
+      self.num("bitOffset"),
+      self.num("bitWidth"),
+    ) {
     (Some(low), Some(high), None, None) => bounds(low, high, node)
     (None, None, Some(offset), width) => (offset, width.unwrap_or(1UL))
     _ => raise node.invalid("field requires a complete bit-range declaration")
@@ -120,11 +139,15 @@ priv struct Expansion {
   names : Map[String, Bool]
   peripherals : Array[String]
   registers : Array[Register]
-  mut count : Int
+  mut count : Int32
 }
 
 ///|
-fn Expansion::record(self : Expansion, path : String, node : Node) -> Unit raise SvdError {
+fn Expansion::record(
+  self : Expansion,
+  path : String,
+  node : Node,
+) -> Unit raise SvdError {
   self.count += 1
   if self.count > 250_000 {
     raise node.invalid("SVD expanded instance limit exceeded")
@@ -169,7 +192,7 @@ fn Expansion::visit(
   parent : String,
   base : UInt64,
   defaults : RegisterDefaults,
-  depth : Int,
+  depth : Int32,
 ) -> Unit raise SvdError {
   let item = self.resolver.resolve(path)
   let node = item.declaration.node
@@ -177,15 +200,27 @@ fn Expansion::visit(
     raise node.invalid("expanded SVD hierarchy exceeds 32 levels")
   }
   let defaults = item.defaults(defaults)
-  let address_tag = if node.name == "peripheral" { "baseAddress" } else { "addressOffset" }
+  let address_tag = if node.name == "peripheral" {
+    "baseAddress"
+  } else {
+    "addressOffset"
+  }
   let offset = match item.num(address_tag) {
     Some(value) => value
     None => raise node.invalid("missing <\{address_tag}> for '\{path}'")
   }
   for instance in item.instances() {
-    let key = if parent == "" { instance.name } else { "\{parent}.\{instance.name}" }
+    let key = if parent == "" {
+      instance.name
+    } else {
+      "\{parent}.\{instance.name}"
+    }
     self.record(key, node)
-    let address = checked_add(checked_add(base, offset, node), instance.offset, node)
+    let address = checked_add(
+      checked_add(base, offset, node),
+      instance.offset,
+      node,
+    )
     if node.name == "register" {
       let size = match defaults.size {
         Some(value) => value
@@ -226,7 +261,11 @@ pub fn parse(input : String) -> Device raise SvdError {
     raise node.invalid("only 8-bit addressable units are supported")
   }
   let defaults : RegisterDefaults = {
-    size: checked_size(node.num("size"), checked_size(node.num("width"), None, node), node),
+    size: checked_size(
+      node.num("size"),
+      checked_size(node.num("width"), None, node),
+      node,
+    ),
     access: checked_access(node.property("access"), None, node),
     reset_value: node.num("resetValue"),
     reset_mask: node.num("resetMask"),

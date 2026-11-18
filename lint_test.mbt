@@ -11,7 +11,9 @@ test "lint reports distinct input faults including bad ranges and missing aliase
     #|<alternateRegister>NOPE</alternateRegister></register></registers></peripheral></peripherals></device>
   let device = @moonsvd.parse(input)
   let diagnostics = device.lint()
-  assert_eq(diagnostics.map(item => item.code), ["reset-width", "field-overlap", "field-range", "alternate-register", "register-overlap"])
+  assert_eq(diagnostics.map(item => item.code), [
+    "reset-width", "field-overlap", "field-range", "alternate-register", "register-overlap",
+  ])
   assert_eq(diagnostics[2].path, "P.R.C")
   assert_true(diagnostics[2].line > 0)
 }

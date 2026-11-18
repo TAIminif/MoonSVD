@@ -17,11 +17,16 @@ pub fn Device::at(self : Device, address : UInt64) -> Array[Register] {
 
 ///|
 /// Interpret a register value as one of its named fields.
-pub fn Register::decode_field(self : Register, field_name : String, value : UInt64) -> UInt64? {
+pub fn Register::decode_field(
+  self : Register,
+  field_name : String,
+  value : UInt64,
+) -> UInt64? {
   for field in self.fields {
     if field.name == field_name {
       let size = self.size.to_uint64()
-      if field.bit_width == 0UL || field.bit_offset >= size ||
+      if field.bit_width == 0UL ||
+        field.bit_offset >= size ||
         field.bit_width > size - field.bit_offset {
         return None
       }

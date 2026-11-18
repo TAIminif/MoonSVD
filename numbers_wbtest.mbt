@@ -1,6 +1,8 @@
 ///|
 test "numeric radices, scaled values and 64-bit exactness" {
-  let root = read_tree("<x><address>0xFFFFffffFFFFFFFF</address><size>64</size><block>4K</block></x>")
+  let root = read_tree(
+    "<x><address>0xFFFFffffFFFFFFFF</address><size>64</size><block>4K</block></x>",
+  )
   assert_eq(root.num("address").unwrap(), 18446744073709551615UL)
   assert_eq(root.num("block").unwrap(), 4096UL)
   assert_eq(root.small("size", 64), Some(64))
@@ -11,7 +13,10 @@ test "numeric radices, scaled values and 64-bit exactness" {
 ///|
 test "reject malformed and overflowing numeric values" {
   let root = read_tree("<x/>")
-  for input in ["", "0x", "-1", "#10x", "0b102", "18446744073709551616", "1099511627776T"] {
+  for
+    input in [
+      "", "0x", "-1", "#10x", "0b102", "18446744073709551616", "1099511627776T",
+    ] {
     try number(input, root, "test") catch {
       Invalid(_, _, _) => ()
     } noraise {
