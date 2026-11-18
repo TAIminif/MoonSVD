@@ -25,12 +25,35 @@ fn optional_hex(value : UInt64?) -> Json {
 }
 
 ///|
+fn constraint_json(value : WriteConstraint?) -> Json {
+  match value {
+    None => Json::null()
+    Some(AsRead(enabled)) =>
+      { "kind": Json::string("writeAsRead"), "enabled": Json::boolean(enabled) }
+    Some(Enumerated(enabled)) =>
+      {
+        "kind": Json::string("useEnumeratedValues"),
+        "enabled": Json::boolean(enabled),
+      }
+    Some(Range(low, high)) =>
+      {
+        "kind": Json::string("range"),
+        "minimum": hex(low),
+        "maximum": hex(high),
+      }
+  }
+}
+
+///|
 fn Field::json(self : Field) -> Json {
   {
     "name": Json::string(self.name),
     "bitOffset": Json::string(self.bit_offset.to_string()),
     "bitWidth": Json::string(self.bit_width.to_string()),
     "access": optional_string(self.access),
+    "readAction": optional_string(self.behavior.read_action),
+    "modifiedWriteValues": optional_string(self.behavior.modified_write_values),
+    "writeConstraint": constraint_json(self.behavior.write_constraint),
     "line": Json(self.line),
   }
 }
@@ -43,6 +66,9 @@ pub fn Register::json(self : Register) -> Json {
     "address": hex(self.address),
     "size": Json(self.size),
     "access": optional_string(self.access),
+    "readAction": optional_string(self.behavior.read_action),
+    "modifiedWriteValues": optional_string(self.behavior.modified_write_values),
+    "writeConstraint": constraint_json(self.behavior.write_constraint),
     "resetValue": optional_hex(self.reset_value),
     "resetMask": optional_hex(self.reset_mask),
     "alternateRegister": optional_string(self.alternate_register),
@@ -82,11 +108,30 @@ fn optional_register(value : Register?) -> Json {
 }
 
 ///|
+fn optional_field(value : Field?) -> Json {
+  match value {
+    Some(field) => field.json()
+    None => Json::null()
+  }
+}
+
+///|
+pub fn FieldChange::json(self : FieldChange) -> Json {
+  {
+    "name": Json::string(self.name),
+    "properties": strings(self.properties),
+    "before": optional_field(self.before),
+    "after": optional_field(self.after),
+  }
+}
+
+///|
 pub fn Change::json(self : Change) -> Json {
   {
     "path": Json::string(self.path),
     "properties": strings(self.properties),
     "before": optional_register(self.before),
     "after": optional_register(self.after),
+    "fieldChanges": Json::array(self.field_changes.map(FieldChange::json)),
   }
 }

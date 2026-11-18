@@ -71,12 +71,38 @@ def verify_fixtures():
         ("TIMER1.CTRL", ["resetValue", "fields"]),
         ("TIMER1.EVENTS", ["added"]),
     ]
+    assert changes[0]["fieldChanges"][0]["name"] == "MODE"
+    assert changes[0]["fieldChanges"][0]["properties"] == ["bitWidth"]
+    assert changes[1]["fieldChanges"] == []
     assert not cli("diff", v2, v2)["changes"]
     cli("lookup", v1, "MISSING", code=1, diagnostic="was not found")
     with TemporaryDirectory(prefix="moonsvd-malformed-") as work:
         malformed = Path(work, "broken.svd")
         malformed.write_text("<device><name></device>", encoding="utf-8")
         cli("check", malformed, code=2, diagnostic="line 1")
+
+
+def verify_access_behavior():
+    before = FIXTURES / "status-v1.svd"
+    after = FIXTURES / "status-v2.svd"
+    selected = cli("lookup", before, "IRQ.STATUS")
+    assert selected["readAction"] == "clear"
+    assert selected["fields"][0]["modifiedWriteValues"] == "oneToClear"
+    changes = cli("diff", before, after, code=1)["changes"]
+    assert len(changes) == 1
+    change = changes[0]
+    assert change["path"] == "IRQ.STATUS"
+    assert change["properties"] == ["readAction", "fields"]
+    assert change["before"]["address"] == change["after"]["address"]
+    assert change["after"]["readAction"] == "modifyExternal"
+    level, pending = change["fieldChanges"]
+    assert (level["name"], level["properties"]) == ("LEVEL", ["writeConstraint"])
+    assert level["before"]["writeConstraint"]["maximum"] == "0x7"
+    assert level["after"]["writeConstraint"] == {
+        "kind": "range", "minimum": "0x0", "maximum": "0x3"
+    }
+    assert (pending["name"], pending["properties"]) == ("PENDING", ["modifiedWriteValues"])
+    assert pending["after"]["modifiedWriteValues"] == "zeroToClear"
 
 
 def verified_reference(directory, name, url, expected_hash):
@@ -140,6 +166,7 @@ def main():
     )
     options = parser.parse_args()
     verify_fixtures()
+    verify_access_behavior()
     if options.official:
         if options.reference_dir:
             options.reference_dir.mkdir(parents=True, exist_ok=True)

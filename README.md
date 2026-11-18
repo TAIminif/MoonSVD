@@ -15,13 +15,17 @@ node bin/moonsvd.mjs inspect fixtures/timer-v1.svd
 node bin/moonsvd.mjs lookup fixtures/timer-v1.svd 'TIMER1.CAPTURE[1]'
 node bin/moonsvd.mjs check fixtures/timer-v1.svd
 node bin/moonsvd.mjs diff fixtures/timer-v1.svd fixtures/timer-v2.svd
+node bin/moonsvd.mjs diff fixtures/status-v1.svd fixtures/status-v2.svd
 ```
 
 - 查看寄存器。样例查询得到 `TIMER1.CAPTURE[1]`，地址 `0x40000114`，权限为只读。
 - 审查版本。版本对比报告两个定时器各自新增的 `EVENTS`，以及 `CTRL` 的复位值和位域变化。
+- 检查读写行为。状态寄存器样例的地址和位宽相同，`diff` 仍会报告寄存器读操作的副作用、`PENDING` 的写入行为及 `LEVEL` 的可写范围变化。
 - 检查器件包。对 `fixtures/bad-field.svd` 运行 `check`，会定位 `TIMER.CTRL.BAD` 超出寄存器位宽。
 
 命令输出 JSON。退出码 0 表示查询成功、未发现问题或无差异，1 表示发现问题、差异或查无该寄存器，2 表示调用、IO 或解析错误。地址、复位值和掩码用十六进制字符串输出，位偏移和位宽用十进制字符串输出，以保持 64 位精度。
+
+寄存器及位域的 JSON 包含 `readAction`、`modifiedWriteValues` 和 `writeConstraint`，缺省时用 `null`。`fieldChanges` 按位域名称列出同一个寄存器内的新增、删除及属性变化。整个寄存器新增或删除时，对应的寄存器快照已包含所有位域。
 
 ## MoonBit API
 
@@ -37,9 +41,10 @@ moon run examples/inspect
 
 - 以字节寻址的 CMSIS-SVD XML，解析外设、嵌套寄存器组、寄存器和位域。支持外设／组／寄存器／位域的 `derivedFrom` 引用、`dim` 数组，以及设备到寄存器的属性默认值。
 - 支持三种位域范围写法。提供按路径和起始地址查询、位域提取，以及寄存器地址、位宽、访问权限、复位信息、别名和位域布局的语义比较。
+- 读取并比较寄存器和位域的 `readAction`、`modifiedWriteValues`、`writeConstraint`。写约束支持按读值写入、使用枚举值和数值范围，寄存器约束可作为位域默认值。
 - 校验字段越界和重叠、复位值位宽、同一外设内的寄存器重叠及寄存器别名。允许合法的同地址读写分视图。解析错误包含源行列，校验结果包含来源行和完整路径。
 - 当前 CLI 读取 UTF-8、最多 16 MiB 的常规文件。库限制 UTF-16 代码单元、展开规模和 XML 深度，并禁用 DTD。以输入里声明的寄存器语义为准。
-- 首版是寄存器映射工具。枚举值语义、中断说明、读写副作用、外设地址块权限和厂商扩展未进入归一化结果。SVD 的扁平索引可能缺省，完整 XSD 合规性可用独立工具核查。CLI 的文件宿主是 Node.js，解析、校验、比较和结构化输出均由 MoonBit 完成。
+- 当前覆盖寄存器布局和声明的读写行为，枚举值定义、中断说明、外设地址块权限和厂商扩展仍在范围之外。完整 XSD 合规性可用独立工具核查。CLI 的文件宿主是 Node.js，解析、校验、比较和结构化输出均由 MoonBit 完成。
 
 ## 测试与来源
 

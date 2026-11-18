@@ -24,6 +24,7 @@ pub struct Change {
   before : Register?
   after : Register?
   properties : Array[String]
+  field_changes : Array[FieldChange]
 }
 pub fn Change::json(Self) -> Json
 
@@ -56,6 +57,14 @@ pub struct Field {
   behavior : AccessBehavior
   line : Int
 }
+
+pub struct FieldChange {
+  name : String
+  before : Field?
+  after : Field?
+  properties : Array[String]
+}
+pub fn FieldChange::json(Self) -> Json
 
 pub struct Register {
   path : String

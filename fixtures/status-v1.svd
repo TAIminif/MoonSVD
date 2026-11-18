@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<device schemaVersion="1.3">
+  <name>InterruptDemo</name>
+  <version>1.0</version>
+  <width>32</width>
+  <peripherals>
+    <peripheral>
+      <name>IRQ</name>
+      <baseAddress>0x40000000</baseAddress>
+      <registers>
+        <register>
+          <name>STATUS</name>
+          <addressOffset>0</addressOffset>
+          <readAction>clear</readAction>
+          <fields>
+            <field>
+              <name>PENDING</name>
+              <bitOffset>0</bitOffset>
+              <modifiedWriteValues>oneToClear</modifiedWriteValues>
+            </field>
+            <field>
+              <name>LEVEL</name>
+              <bitOffset>4</bitOffset>
+              <bitWidth>4</bitWidth>
+              <writeConstraint><range><minimum>0</minimum><maximum>7</maximum></range></writeConstraint>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+  </peripherals>
+</device>

@@ -5,6 +5,16 @@ pub struct Change {
   before : Register?
   after : Register?
   properties : Array[String]
+  field_changes : Array[FieldChange]
+}
+
+///|
+/// A field addition, removal, or change inside a register present in both maps.
+pub struct FieldChange {
+  name : String
+  before : Field?
+  after : Field?
+  properties : Array[String]
 }
 
 ///|
@@ -17,23 +27,76 @@ fn register_index(registers : Array[Register]) -> Map[String, Register] {
 }
 
 ///|
-fn same_fields(before : Array[Field], after : Array[Field]) -> Bool {
-  if before.length() != after.length() {
-    return false
+fn append_behavior_changes(
+  changed : Array[String],
+  before : AccessBehavior,
+  after : AccessBehavior,
+) -> Unit {
+  if before.read_action != after.read_action {
+    changed.push("readAction")
   }
-  let by_name = Map([])
-  for field in before {
-    by_name[field.name] = field
+  if before.modified_write_values != after.modified_write_values {
+    changed.push("modifiedWriteValues")
   }
+  if before.write_constraint != after.write_constraint {
+    changed.push("writeConstraint")
+  }
+}
+
+///|
+fn changed_field_properties(before : Field, after : Field) -> Array[String] {
+  let changed = []
+  if before.bit_offset != after.bit_offset {
+    changed.push("bitOffset")
+  }
+  if before.bit_width != after.bit_width {
+    changed.push("bitWidth")
+  }
+  if before.access != after.access {
+    changed.push("access")
+  }
+  append_behavior_changes(changed, before.behavior, after.behavior)
+  changed
+}
+
+///|
+fn diff_fields(
+  before : Array[Field],
+  after : Array[Field],
+) -> Array[FieldChange] {
+  let remaining = Map([])
   for field in after {
-    match by_name.get(field.name) {
-      Some(old) if old.bit_offset == field.bit_offset &&
-        old.bit_width == field.bit_width &&
-        old.access == field.access => ()
-      _ => return false
+    remaining[field.name] = field
+  }
+  let changes = []
+  for field in before {
+    let counterpart = remaining.get(field.name)
+    let properties = match counterpart {
+      Some(current) => {
+        remaining.remove(field.name)
+        changed_field_properties(field, current)
+      }
+      None => ["removed"]
+    }
+    if !properties.is_empty() {
+      changes.push({
+        name: field.name,
+        before: Some(field),
+        after: counterpart,
+        properties,
+      })
     }
   }
-  true
+  for name, field in remaining {
+    changes.push({
+      name,
+      before: None,
+      after: Some(field),
+      properties: ["added"],
+    })
+  }
+  changes.sort_by((a, b) => a.name.lexical_compare(b.name))
+  changes
 }
 
 ///|
@@ -58,9 +121,7 @@ fn changed_properties(before : Register, after : Register) -> Array[String] {
     before.alternate_group != after.alternate_group {
     changed.push("alternate")
   }
-  if !same_fields(before.fields, after.fields) {
-    changed.push("fields")
-  }
+  append_behavior_changes(changed, before.behavior, after.behavior)
   changed
 }
 
@@ -73,12 +134,25 @@ pub fn Device::diff(before : Device, after : Device) -> Array[Change] {
   let changes = []
   for path, reg in left {
     let counterpart = right.get(path)
-    let properties = match counterpart {
-      Some(current) => changed_properties(reg, current)
-      None => ["removed"]
+    let (properties, field_changes) = match counterpart {
+      Some(current) => {
+        let properties = changed_properties(reg, current)
+        let field_changes = diff_fields(reg.fields, current.fields)
+        if !field_changes.is_empty() {
+          properties.push("fields")
+        }
+        (properties, field_changes)
+      }
+      None => (["removed"], [])
     }
     if !properties.is_empty() {
-      changes.push({ path, before: Some(reg), after: counterpart, properties, })
+      changes.push({
+        path,
+        before: Some(reg),
+        after: counterpart,
+        properties,
+        field_changes,
+      })
     }
   }
   for path, reg in right {
@@ -88,6 +162,7 @@ pub fn Device::diff(before : Device, after : Device) -> Array[Change] {
         before: None,
         after: Some(reg),
         properties: ["added"],
+        field_changes: [],
       })
     }
   }
