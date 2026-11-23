@@ -202,6 +202,47 @@ def verify_fixtures():
         assert selected["address"] == "0x4"
 
 
+def verify_address_lookup():
+    fixture = FIXTURES / "timer-v1.svd"
+    expected = cli("lookup", fixture, "TIMER1.CAPTURE[1]")
+    for address in ["0x40000114", "0X40000114", str(0x40000114)]:
+        assert cli("at", fixture, address) == {
+            "device": "TimerDemo", "address": "0x40000114",
+            "registers": [expected],
+        }
+    base = (1 << 64) - 2
+    with TemporaryDirectory(prefix="moonsvd-address-") as work:
+        path = Path(work, "boundary.svd")
+        path.write_text(
+            "<device><name>AddressDemo</name><size>8</size><peripherals>"
+            f"<peripheral><name>P</name><baseAddress>{base}</baseAddress>"
+            "<registers><register><dim>2</dim><dimIncrement>1</dimIncrement>"
+            "<name>R%s</name><addressOffset>0</addressOffset></register>"
+            "<register><name>VIEW</name><alternateRegister>R1</alternateRegister>"
+            "<addressOffset>1</addressOffset></register>"
+            "</registers></peripheral></peripherals></device>",
+            encoding="utf-8",
+        )
+        assert not cli("check", path)["findings"]
+        maximum = base + 1
+        for argument in [str(maximum), hex(maximum), hex(maximum).upper(),
+                         bin(maximum), oct(maximum), "0xffff_ffff_ffff_ffff"]:
+            report = cli("at", path, argument)
+            assert report["address"] == hex(maximum)
+            assert [reg["path"] for reg in report["registers"]] == ["P.R1", "P.VIEW"]
+            assert all(int(reg["address"], 16) == maximum for reg in report["registers"])
+        report = cli("at", path, str(base))
+        assert [reg["path"] for reg in report["registers"]] == ["P.R0"]
+        assert cli("at", path, "0", code=1) == {
+            "device": "AddressDemo", "address": "0x0", "registers": [],
+        }
+        assert cli("at", path, "0" * 128, code=1)["registers"] == []
+        for invalid in ["", "-1", "+1", str(1 << 64), hex(1 << 64),
+                        "0x", "0xZ", "1.5", "1e3", "ff", " 1", "1 ",
+                        "1__0", "0x1_", "９", "0" * 129]:
+            cli("at", path, invalid, code=2, diagnostic="expected an unsigned 64-bit address")
+
+
 def verify_access_behavior():
     before = FIXTURES / "status-v1.svd"
     after = FIXTURES / "status-v2.svd"
@@ -302,6 +343,10 @@ def verify_register(path, source, check):
     )
     register = cli("lookup", path, wanted)
     assert int(register["address"], 16) == address, wanted
+    at_address = cli("at", path, str(address))
+    assert int(at_address["address"], 16) == address, wanted
+    assert register in at_address["registers"], wanted
+    assert all(int(item["address"], 16) == address for item in at_address["registers"])
     assert int(register["resetValue"], 16) == int(raw.findtext("resetValue"), 0)
     size = (
         raw.findtext("size") or peripheral.findtext("size")
@@ -370,6 +415,7 @@ def main():
     )
     options = parser.parse_args()
     verify_fixtures()
+    verify_address_lookup()
     verify_access_behavior()
     verify_register_aliases()
     if options.official:

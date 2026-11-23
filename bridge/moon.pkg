@@ -1,5 +1,6 @@
 import {
   "guoqi/moonsvd" @svd,
+  "moonbitlang/core/string",
 }
 
 pkgtype(kind: "foreign_library")

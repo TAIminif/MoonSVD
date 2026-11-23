@@ -18,6 +18,7 @@ python scripts/verify_cli.py --official
 - 文件输入限 16 MiB。库输入限 8,388,608 个 UTF-16 代码单元、250,000 个 XML 元素及 250,000 个展开实例。单个局部名称限 256 个 UTF-16 代码单元，限定路径限 4,096 个，数值文本限 128 个。声明索引和展开阶段各有 8,388,608 个 UTF-16 代码单元的累计名称预算，展开阶段同时计算寄存器别名。继承合并累计最多处理 1,000,000 个子项，直接继承会复用已有子项列表。
 - 外设、寄存器组和寄存器的展开层级最多 32 层。语义校验同时跟踪最多 128 个重叠寄存器，超过时报告 `overlap-density`，CLI `check` 返回 1。
 - CLI 回归测试检查损坏的 XML、非法 UTF-8、超限文件、目录、控制字符诊断和 Linux 命名管道。
+- `at` 命令回归覆盖十进制与整数前缀、下划线、128 字符边界、非法数字和溢出。以两个相邻的 UInt64 最大地址核对数组实例，确认不会因 JavaScript 数字转换而合并地址，并返回同地址的全部别名。六份厂商样本按 Python 独立计算的地址核对查询结果。
 - XML 解析前检查单个标签最多 128 个属性、65,536 个 UTF-16 代码单元，限制依赖逐项检查重复属性时的工作量。回归覆盖属性数和标签长度的临界值、单双引号内的等号与大于号、Unicode 长度，以及注释、处理指令和 CDATA 中的同名文本。
 - 位宽回归覆盖 8、63、64 位边界、复位掩码与写约束范围、继承后的属性和位域约束覆盖。位域及寄存器的只读、只写、写一次视图分别检查读写冲突，新增同类视图仍会报告重叠。
 - 合法输入回归覆盖含小数点和 Unicode 的设备名称，以及接近 `UInt64` 上界的数字范围型 `dimIndex`。数组索引用于实例名称，元素个数和地址步长分别校验，超长范围、逆序及数值溢出会返回解析错误。
@@ -41,6 +42,6 @@ python scripts/verify_cli.py --official
 
 ## 发布与安装验证
 
-版本 `guoqi/moonsvd@0.2.9` 已发布至 [Mooncakes](https://mooncakes.io/docs/guoqi/moonsvd@0.2.9)。在不引用仓库源码的独立项目中执行 `moon add guoqi/moonsvd@0.2.9`，从注册表下载依赖，在 wasm-gc、wasm、js 三个后端完成检查和运行。验证解析、路径查询、地址查询、位域解码、校验和自比较，示例输出 `TIMER.CTRL @ 40000004, EN=1`。
+版本 `guoqi/moonsvd@0.3.0` 已发布至 [Mooncakes](https://mooncakes.io/docs/guoqi/moonsvd@0.3.0)。在不引用仓库源码的独立项目中执行 `moon add guoqi/moonsvd@0.3.0`，从注册表下载依赖，在 wasm-gc、wasm、js 三个后端完成检查和运行。验证解析、路径查询、地址查询、位域解码、校验和自比较，示例输出 `TIMER.CTRL @ 40000004, EN=1`。
 
-安装包中的 32 份 MoonBit 源码、接口、包配置及 CLI 文件与 [v0.2.9 发布源码](https://github.com/TAIminif/MoonSVD/tree/v0.2.9) 一致（文本换行统一后比较），根许可证也一致。README 提供了相同的安装命令，包元数据中的源码地址为 `https://github.com/TAIminif/MoonSVD`。
+安装包中的 32 份 MoonBit 源码、接口、包配置及 CLI 文件与 [v0.3.0 发布源码](https://github.com/TAIminif/MoonSVD/tree/v0.3.0) 一致（文本换行统一后比较），根许可证也一致。README 提供了相同的安装命令，包元数据中的源码地址为 `https://github.com/TAIminif/MoonSVD`。

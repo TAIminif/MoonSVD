@@ -6,6 +6,7 @@ const usage = [
   '  inspect <file.svd>',
   '  check <file.svd>',
   '  lookup <file.svd> <Peripheral.Register>',
+  '  at <file.svd> <address>',
   '  diff <before.svd> <after.svd>',
 ].join('\n');
 
@@ -51,7 +52,9 @@ async function main(args) {
     return 0;
   }
   const [command, path, extra] = args;
-  const counts = new Map([['inspect', 2], ['check', 2], ['lookup', 3], ['diff', 3]]);
+  const counts = new Map([
+    ['inspect', 2], ['check', 2], ['lookup', 3], ['at', 3], ['diff', 3],
+  ]);
   if (counts.get(command) !== args.length) {
     console.error(usage);
     return 2;

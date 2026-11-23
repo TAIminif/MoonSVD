@@ -15,12 +15,14 @@ moon update
 moon build --target js --release
 node bin/moonsvd.mjs inspect fixtures/timer-v1.svd
 node bin/moonsvd.mjs lookup fixtures/timer-v1.svd 'TIMER1.CAPTURE[1]'
+node bin/moonsvd.mjs at fixtures/timer-v1.svd 0x40000114
 node bin/moonsvd.mjs check fixtures/timer-v1.svd
 node bin/moonsvd.mjs diff fixtures/timer-v1.svd fixtures/timer-v2.svd
 node bin/moonsvd.mjs diff fixtures/status-v1.svd fixtures/status-v2.svd
 ```
 
 - 查看寄存器。样例查询得到 `TIMER1.CAPTURE[1]`，地址 `0x40000114`，权限为只读。
+- 按地址查找。`at` 查询寄存器的确切起始地址，返回 `address` 和 `registers` 数组，保留同地址的全部别名视图。地址支持十进制、`0x` 十六进制、`0b` 二进制、`0o` 八进制及标准下划线分组，范围为 0 至 2⁶⁴−1，输入最多 128 个字符。未命中时返回空数组及退出码 1，地址格式错误或溢出时返回退出码 2。
 - 审查版本。版本对比报告两个定时器各自新增的 `EVENTS`，以及 `CTRL` 的复位值和位域变化。
 - 检查读写行为。状态寄存器样例的地址和位宽相同，`diff` 仍会报告寄存器读操作的副作用、`PENDING` 的写入行为及 `LEVEL` 的可写范围变化。
 - 检查器件包。对 `fixtures/bad-field.svd` 运行 `check`，会定位 `TIMER.CTRL.BAD` 超出寄存器位宽。
@@ -35,7 +37,7 @@ node bin/moonsvd.mjs diff fixtures/status-v1.svd fixtures/status-v2.svd
 安装 [guoqi/moonsvd](https://mooncakes.io/docs/guoqi/moonsvd) 作为项目依赖：
 
 ```sh
-moon add guoqi/moonsvd@0.2.9
+moon add guoqi/moonsvd@0.3.0
 ```
 
 在使用该库的 `moon.pkg` 中添加：
@@ -82,6 +84,6 @@ python scripts/verify_cli.py --official
 
 RP2350 样本中的四个 16 位寄存器继承了 32 位复位掩码。`check` 报告四条 `reset-mask-width` 诊断并返回退出码 1，验证脚本逐项核对这些预期结果。
 
-已发布 `guoqi/moonsvd@0.2.9`，并在独立项目中完成安装和运行验证。工程检查与发布证据见[终验自查](docs/acceptance.md)。
+已发布 `guoqi/moonsvd@0.3.0`，并在独立项目中完成安装和运行验证。工程检查与发布证据见[终验自查](docs/acceptance.md)。
 
 源代码采用 [Apache-2.0](LICENSE)。项目以 [Open-CMSIS-SVD 规范](https://open-cmsis-pack.github.io/svd-spec/main/index.html)为依据，复用 [Milky2018/xml](https://github.com/moonbit-community/xml-mbt) 作为通用 XML 解析依赖。

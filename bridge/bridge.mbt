@@ -10,6 +10,18 @@ fn error_reply(code : Int32, message : String) -> String {
 }
 
 ///|
+fn parse_address(raw : String) -> UInt64? {
+  if raw.length() > 128 {
+    return None
+  }
+  try @string.parse_uint64(raw[:]) catch {
+    _ => None
+  } noraise {
+    value => Some(value)
+  }
+}
+
+///|
 #export_name("execute")
 pub fn execute(command : String, input : String, other : String) -> String {
   run_command(command, input, other) catch {
@@ -31,6 +43,22 @@ fn run_command(
         Some(register) => reply(0, register.json())
         None => error_reply(1, "register '\{other}' was not found")
       }
+    "at" => {
+      let address = match parse_address(other) {
+        Some(address) => address
+        None =>
+          return error_reply(
+            2, "expected an unsigned 64-bit address (at most 128 characters)",
+          )
+      }
+      let registers = device.at(address)
+      let report : Json = {
+        "device": Json::string(device.name),
+        "address": Json::string("0x" + address.to_string(radix=16)),
+        "registers": Json::array(registers.map(@svd.Register::json)),
+      }
+      reply(if registers.is_empty() { 1 } else { 0 }, report)
+    }
     "check" => {
       let findings = device.lint()
       let report : Json = {
