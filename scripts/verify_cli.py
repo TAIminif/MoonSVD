@@ -143,6 +143,11 @@ def verify_fixtures():
         malformed = Path(work, "broken.svd")
         malformed.write_text("<device><name></device>", encoding="utf-8")
         cli("check", malformed, code=2, diagnostic="line 1")
+        attributes = " ".join(f'a{i}=""' for i in range(129))
+        malformed.write_text(f"<device {attributes}/>", encoding="utf-8")
+        cli("check", malformed, code=2, diagnostic="exceeds 128 attributes")
+        malformed.write_text("<device a='" + ">" * 65_536 + "'/>", encoding="utf-8")
+        cli("check", malformed, code=2, diagnostic="exceeds 65,536")
         malformed.write_bytes(b"<device>\xff</device>")
         cli("check", malformed, code=2, diagnostic="utf-8")
         with malformed.open("wb") as stream:

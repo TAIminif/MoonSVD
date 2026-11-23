@@ -61,3 +61,59 @@ test "a DOCTYPE word inside comments, CDATA and processing instructions is data"
   let root = read_tree(input)
   assert_eq(root.property("name"), Some("<!DOCTYPE text>"))
 }
+
+///|
+fn attribute_list(count : Int32) -> String {
+  let attributes = StringBuilder()
+  for i in 0..<count {
+    attributes.write_string(" a\{i}=\"\"")
+  }
+  attributes.to_string()
+}
+
+///|
+test "XML attribute limits run before dependency parsing with source locations" {
+  let root = read_tree("<x" + attribute_list(128) + "/>")
+  assert_eq(root.attributes.length(), 128)
+  let input = "<?xml version=\"1.0\"?>\r\n  <x" + attribute_list(129) + "/>"
+  try read_tree(input) catch {
+    Invalid(line, column, detail) => {
+      assert_eq(line, 2)
+      assert_eq(column, 3)
+      assert_eq(detail, "XML tag exceeds 128 attributes")
+    }
+  } noraise {
+    _ => fail("expected the XML attribute limit")
+  }
+  let data = attribute_list(256)
+  let input = "<!-- <x" +
+    data +
+    "/> --><?hint <x" +
+    data +
+    "/>?><x a='>&quot;=value'><![CDATA[<y" +
+    data +
+    "/>]]></x>"
+  assert_eq(read_tree(input).attributes.get("a"), Some(">\"=value"))
+}
+
+///|
+test "XML token length limits count UTF-16 units and respect quotes" {
+  for quote in ["\"", "'"] {
+    let prefix = "<x a=" + quote
+    let suffix = quote + "/>"
+    let length = 65_536 - prefix.length() - suffix.length()
+    let value = ">".repeat(length)
+    assert_eq(
+      read_tree(prefix + value + suffix).attributes.get("a"),
+      Some(value),
+    )
+    for oversized in [value + ">", "😀".repeat(length / 2 + 1)] {
+      try read_tree(prefix + oversized + suffix) catch {
+        Invalid(_, _, detail) =>
+          assert_eq(detail, "XML tag exceeds 65,536 UTF-16 code units")
+      } noraise {
+        _ => fail("expected the XML tag length limit")
+      }
+    }
+  }
+}

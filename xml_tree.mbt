@@ -63,7 +63,7 @@ fn attach_node(
 }
 
 ///|
-fn dtd_location(input : String, offset : Int32) -> SvdError {
+fn input_error(input : String, offset : Int32, detail : String) -> SvdError {
   let mut line = 1
   let mut column = 1
   let mut was_cr = false
@@ -83,16 +83,46 @@ fn dtd_location(input : String, offset : Int32) -> SvdError {
     }
     was_cr = char == '\r'
   }
-  Invalid(line, column, "DTD is disabled")
+  Invalid(line, column, detail)
 }
 
 ///|
-/// Reject a document type before the XML reader processes its internal subset.
-/// Ordinary text inside comments, processing instructions and CDATA is skipped.
-fn reject_dtd(input : String) -> Unit raise SvdError {
-  if !input.contains("<!DOCTYPE") {
-    return
+/// Limit work within a tag before the XML dependency checks duplicate attributes.
+/// Quotes protect embedded greater-than signs and equals signs from token counting.
+fn check_xml_tag(input : String, start : Int32) -> Int32 raise SvdError {
+  let mut position = start
+  let mut quote : Char? = None
+  let mut attributes = 0
+  for char in input[start:] {
+    position += if char.to_int() > 0xffff { 2 } else { 1 }
+    if position - start > 65_536 {
+      raise input_error(
+        input, start, "XML tag exceeds 65,536 UTF-16 code units",
+      )
+    }
+    match quote {
+      Some(delimiter) => if char == delimiter { quote = None }
+      None =>
+        match char {
+          '"' | '\'' => quote = Some(char)
+          '=' => {
+            attributes += 1
+            if attributes > 128 {
+              raise input_error(input, start, "XML tag exceeds 128 attributes")
+            }
+          }
+          '>' => return position
+          _ => ()
+        }
+    }
   }
+  position
+}
+
+///|
+/// Check resource limits and reject DTDs before the XML dependency parses tokens.
+/// Comments, processing instructions and CDATA are skipped as complete tokens.
+fn check_xml_tokens(input : String) -> Unit raise SvdError {
   let mut cursor = 0
   while input[cursor:].find("<") is Some(distance) {
     cursor += distance
@@ -105,9 +135,9 @@ fn reject_dtd(input : String) -> Unit raise SvdError {
       (body, "?>")
     } else {
       if token.has_prefix("<!DOCTYPE") {
-        raise dtd_location(input, cursor)
+        raise input_error(input, cursor, "DTD is disabled")
       }
-      cursor += 1
+      cursor = check_xml_tag(input, cursor)
       continue
     }
     match body.find(closer) {
@@ -122,7 +152,7 @@ fn read_tree(input : String) -> Node raise SvdError {
   if input.length() > 8_388_608 {
     raise Invalid(1, 1, "input exceeds 8,388,608 UTF-16 code units")
   }
-  reject_dtd(input)
+  check_xml_tokens(input)
   let reader = @xml.Reader::from_string(input)
   let stack : Array[Node] = []
   let mut root : Node? = None
