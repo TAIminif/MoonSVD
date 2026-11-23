@@ -170,3 +170,39 @@ test "cyclic or incompatible alternate chains fail for each dependent register" 
     ["P.B", "P.C"],
   )
 }
+
+///|
+test "alternate groups and reference chains compose transitively" {
+  let prefix = "<device><name>D</name><size>32</size><peripherals><peripheral><name>P</name><baseAddress>0</baseAddress><registers>"
+  let suffix = "</registers></peripheral></peripherals></device>"
+  let registers = [
+    "<register><name>A</name><alternateGroup>MODE1</alternateGroup><addressOffset>0</addressOffset></register>",
+    "<register><name>B</name><alternateGroup>MODE1</alternateGroup><alternateRegister>C</alternateRegister><addressOffset>0</addressOffset></register>",
+    "<register><name>C</name><alternateGroup>MODE2</alternateGroup><addressOffset>0</addressOffset></register>",
+    "<register><name>D</name><alternateGroup>MODE2</alternateGroup><addressOffset>0</addressOffset></register>",
+    "<register><name>E</name><alternateRegister>A</alternateRegister><addressOffset>0</addressOffset></register>",
+  ]
+  let forward = prefix + registers.join("") + suffix
+  let reverse = prefix + registers.rev().join("") + suffix
+  assert_true(@moonsvd.parse(forward).lint().is_empty())
+  assert_true(@moonsvd.parse(reverse).lint().is_empty())
+}
+
+///|
+test "alternate groups keep address scope and invalid reference diagnostics" {
+  let input =
+    #|<device><name>D</name><size>32</size><peripherals>
+    #|<peripheral><name>P</name><baseAddress>0</baseAddress><registers>
+    #|<register><name>A</name><alternateGroup>MODE</alternateGroup><alternateRegister>B</alternateRegister><addressOffset>0</addressOffset></register>
+    #|<register><name>B</name><alternateGroup>MODE</alternateGroup><alternateRegister>A</alternateRegister><addressOffset>0</addressOffset></register>
+    #|<register><name>C</name><alternateGroup>MODE</alternateGroup><addressOffset>4</addressOffset></register>
+    #|<register><name>D</name><alternateGroup>MODE</alternateGroup><alternateRegister>C</alternateRegister><addressOffset>0</addressOffset></register>
+    #|</registers></peripheral></peripherals></device>
+  let findings = @moonsvd.parse(input).lint()
+  assert_eq(
+    findings
+    .filter(item => item.code == "alternate-register")
+    .map(item => item.path),
+    ["P.A", "P.B", "P.D"],
+  )
+}

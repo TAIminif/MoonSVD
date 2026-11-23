@@ -152,6 +152,20 @@ fn alias_path(reg : Register, target : String) -> String {
 }
 
 ///|
+fn alias_representative(parents : Map[String, String], path : String) -> String {
+  let mut root = path
+  while parents.get(root) is Some(next) {
+    root = next
+  }
+  let mut current = path
+  while parents.get(current) is Some(next) {
+    parents[current] = root
+    current = next
+  }
+  root
+}
+
+///|
 fn resolve_aliases(
   registers : Array[Register],
   by_path : Map[String, Register],
@@ -192,6 +206,33 @@ fn resolve_aliases(
     for path in chain {
       roots[path] = root
       active.remove(path)
+    }
+  }
+  let groups : Map[(String, String, UInt64, UInt64), String] = Map([])
+  let parents : Map[String, String] = Map([])
+  for reg in registers {
+    if reg.alternate_group is Some(group) && group != "" {
+      match roots.get(reg.path) {
+        Some(Some(root)) => {
+          let key = (reg.parent, group, reg.address, register_width(reg))
+          match groups.get(key) {
+            None => groups[key] = root
+            Some(previous) => {
+              let previous_root = alias_representative(parents, previous)
+              let current_root = alias_representative(parents, root)
+              if previous_root != current_root {
+                parents[current_root] = previous_root
+              }
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+  }
+  for reg in registers {
+    if roots.get(reg.path) is Some(Some(root)) {
+      roots[reg.path] = Some(alias_representative(parents, root))
     }
   }
   roots

@@ -222,6 +222,17 @@ def verify_register_aliases():
         )
         assert not cli("diff", before, after)["changes"]
         after.write_text(
+            source.replace(
+                "<name>A</name>",
+                "<name>A</name><alternateGroup>MODE</alternateGroup>",
+            ).replace(
+                "<alternateRegister>A</alternateRegister>",
+                "<alternateGroup>MODE</alternateGroup>",
+            ),
+            encoding="utf-8",
+        )
+        assert not cli("check", after)["findings"]
+        after.write_text(
             source.replace("<name>A</name>", "<name>A</name><alternateRegister>C</alternateRegister>"),
             encoding="utf-8",
         )
