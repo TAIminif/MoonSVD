@@ -66,7 +66,19 @@ REFERENCES = (
         "https://raw.githubusercontent.com/raspberrypi/pico-sdk/2.2.0/src/rp2350/hardware_regs/RP2350.svd",
         "f1180d39bbc0e7c01b1a418bc61493c8450e25732f33bf2b0df381255078014c",
         3029,
-        (RegisterCheck("RESETS", "RESET", "USBCTRL"),),
+        (
+            RegisterCheck("RESETS", "RESET", "USBCTRL"),
+            RegisterCheck("OTP_DATA", "BOOTSEL_LED_CFG"),
+            RegisterCheck("OTP_DATA", "BOOTSEL_PLL_CFG"),
+            RegisterCheck("OTP_DATA", "BOOTSEL_XOSC_CFG"),
+            RegisterCheck("OTP_DATA", "FLASH_DEVINFO"),
+        ),
+        (
+            ("reset-mask-width", "OTP_DATA.BOOTSEL_LED_CFG"),
+            ("reset-mask-width", "OTP_DATA.BOOTSEL_PLL_CFG"),
+            ("reset-mask-width", "OTP_DATA.BOOTSEL_XOSC_CFG"),
+            ("reset-mask-width", "OTP_DATA.FLASH_DEVINFO"),
+        ),
     ),
 )
 
@@ -107,6 +119,12 @@ def verify_fixtures():
     issues = cli("check", FIXTURES / "bad-field.svd", code=1)["findings"]
     assert [(item["code"], item["path"]) for item in issues] == [
         ("field-range", "TIMER.CTRL.BAD")
+    ]
+    issues = cli("check", FIXTURES / "bad-widths.svd", code=1)["findings"]
+    assert [(item["code"], item["path"]) for item in issues] == [
+        ("reset-mask-width", "P.R"),
+        ("write-constraint-width", "P.R"),
+        ("write-constraint-width", "P.R.F"),
     ]
     changes = cli("diff", v1, v2, code=1)["changes"]
     assert [(item["path"], item["properties"]) for item in changes] == [
@@ -196,6 +214,19 @@ def verify_register(path, source, check):
     register = cli("lookup", path, wanted)
     assert int(register["address"], 16) == address, wanted
     assert int(register["resetValue"], 16) == int(raw.findtext("resetValue"), 0)
+    size = (
+        raw.findtext("size") or peripheral.findtext("size")
+        or source.findtext("size") or source.findtext("width")
+    )
+    assert register["size"] == int(size, 0), wanted
+    reset_mask = (
+        raw.findtext("resetMask") or peripheral.findtext("resetMask")
+        or source.findtext("resetMask")
+    )
+    if reset_mask is None:
+        assert register["resetMask"] is None, wanted
+    else:
+        assert int(register["resetMask"], 16) == int(reset_mask, 0), wanted
     access = canonical_access(
         raw.findtext("access") or peripheral.findtext("access") or source.findtext("access")
     )
@@ -218,15 +249,22 @@ def verify_register(path, source, check):
     return f"{wanted} = {address:#x}"
 
 
-def verify_reference(directory, name, url, digest, expected_count, checks):
+def verify_reference(
+    directory, name, url, digest, expected_count, checks, expected_findings=()
+):
     path = verified_reference(directory, name, url, digest)
     source = ElementTree.parse(path).getroot()
-    report = cli("check", path)
+    report = cli("check", path, code=1 if expected_findings else 0)
     assert report["device"] == source.findtext("name")
     assert report["registers"] == expected_count
-    assert not report["findings"]
+    assert [(item["code"], item["path"]) for item in report["findings"]] == list(
+        expected_findings
+    )
     verified = ", ".join(verify_register(path, source, check) for check in checks)
-    print(f"{report['device']}: {expected_count} registers; {verified}")
+    print(
+        f"{report['device']}: {expected_count} registers; {verified}; "
+        f"{len(expected_findings)} expected diagnostics"
+    )
 
 
 def main():

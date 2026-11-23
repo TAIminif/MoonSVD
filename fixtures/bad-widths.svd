@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device>
+  <name>InvalidWidths</name>
+  <size>8</size>
+  <peripherals>
+    <peripheral>
+      <name>P</name>
+      <baseAddress>0</baseAddress>
+      <registers>
+        <register>
+          <name>R</name>
+          <addressOffset>0</addressOffset>
+          <resetMask>0x100</resetMask>
+          <writeConstraint>
+            <range><minimum>0</minimum><maximum>256</maximum></range>
+          </writeConstraint>
+          <fields>
+            <field>
+              <name>F</name>
+              <bitOffset>0</bitOffset>
+              <bitWidth>4</bitWidth>
+              <writeConstraint>
+                <range><minimum>0</minimum><maximum>16</maximum></range>
+              </writeConstraint>
+            </field>
+          </fields>
+        </register>
+      </registers>
+    </peripheral>
+  </peripherals>
+</device>

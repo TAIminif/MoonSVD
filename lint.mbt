@@ -18,8 +18,43 @@ fn finding(
 }
 
 ///|
+fn access_modes(access : String?) -> (Bool, Bool) {
+  match access {
+    Some("read-only") => (true, false)
+    Some("write-only") | Some("writeOnce") => (false, true)
+    _ => (true, true)
+  }
+}
+
+///|
+fn bit_mask(width : Int32) -> UInt64 {
+  if width == 64 {
+    uint_limit
+  } else {
+    (1UL << width) - 1UL
+  }
+}
+
+///|
+fn check_write_range(
+  constraint : WriteConstraint?,
+  mask : UInt64,
+  path : String,
+  line : Int32,
+  output : Array[Diagnostic],
+) -> Unit {
+  if constraint is Some(Range(_, maximum)) && maximum > mask {
+    output.push(
+      finding(
+        "write-constraint-width", path, line, "write constraint range is wider than the target",
+      ),
+    )
+  }
+}
+
+///|
 fn bit_checks(reg : Register, output : Array[Diagnostic]) -> Unit {
-  let mask = if reg.size == 64 { uint_limit } else { (1UL << reg.size) - 1UL }
+  let mask = bit_mask(reg.size)
   if reg.reset_value is Some(value) && value > mask {
     output.push(
       finding(
@@ -30,7 +65,25 @@ fn bit_checks(reg : Register, output : Array[Diagnostic]) -> Unit {
       ),
     )
   }
-  let occupied : Array[Field?] = Array::make(reg.size, None)
+  if reg.reset_mask is Some(value) && value > mask {
+    output.push(
+      finding(
+        "reset-mask-width",
+        reg.path,
+        reg.line,
+        "reset mask is wider than the register",
+      ),
+    )
+  }
+  check_write_range(
+    reg.behavior.write_constraint,
+    mask,
+    reg.path,
+    reg.line,
+    output,
+  )
+  let readers : Array[Field?] = Array::make(reg.size, None)
+  let writers : Array[Field?] = Array::make(reg.size, None)
   for field in reg.fields {
     let path = "\{reg.path}.\{field.name}"
     let width = reg.size.to_uint64()
@@ -47,12 +100,28 @@ fn bit_checks(reg : Register, output : Array[Diagnostic]) -> Unit {
       )
       continue
     }
+    check_write_range(
+      field.behavior.write_constraint,
+      bit_mask(field.bit_width.to_int()),
+      path,
+      field.line,
+      output,
+    )
+    let (can_read, can_write) = access_modes(field.access)
     let mut collision : Field? = None
     for
       bit in field.bit_offset.to_int()..<(field.bit_offset + field.bit_width).to_int() {
-      match occupied[bit] {
-        Some(previous) => collision = Some(previous)
-        None => occupied[bit] = Some(field)
+      if can_read {
+        match readers[bit] {
+          Some(previous) => collision = Some(previous)
+          None => readers[bit] = Some(field)
+        }
+      }
+      if can_write {
+        match writers[bit] {
+          Some(previous) => collision = Some(previous)
+          None => writers[bit] = Some(field)
+        }
       }
     }
     if collision is Some(previous) {
@@ -84,13 +153,12 @@ fn alias_path(reg : Register, target : String) -> String {
 
 ///|
 fn is_register_alias(a : Register, b : Register) -> Bool {
+  let (a_read, a_write) = access_modes(a.access)
+  let (b_read, b_write) = access_modes(b.access)
   a.address == b.address &&
   register_width(a) == register_width(b) &&
   (
-    (
-      (a.access == Some("read-only") && b.access == Some("write-only")) ||
-      (b.access == Some("read-only") && a.access == Some("write-only"))
-    ) ||
+    (!(a_read && b_read) && !(a_write && b_write)) ||
     (
       a.alternate_group is Some(left) &&
       left != "" &&
