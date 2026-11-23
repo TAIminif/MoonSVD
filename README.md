@@ -6,7 +6,7 @@ MoonSVD 是 MoonBit 实现的 Arm CMSIS-SVD 寄存器描述库和命令行工具
 
 ## 快速运行
 
-安装 [MoonBit 工具链](https://www.moonbitlang.com/download/)及 Node.js 22 或更新版本。在仓库根目录运行以下命令。依赖从 Mooncakes 获取，CLI 无需安装 npm 依赖。
+安装 [MoonBit 工具链](https://www.moonbitlang.com/download/)（`moonc` 不低于 0.10.16）及 Node.js 22 或更新版本。在仓库根目录运行以下命令。依赖从 Mooncakes 获取，CLI 无需安装 npm 依赖。
 
 ```sh
 moon update

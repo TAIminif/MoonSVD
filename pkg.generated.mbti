@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "TAIminif/moonsvd"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
 pub const FORMAT : String = "CMSIS-SVD"
 
@@ -8,7 +12,7 @@ pub fn parse(String) -> Device raise SvdError
 
 // Errors
 pub suberror SvdError {
-  Invalid(Int, Int, String)
+  Invalid(Int32, Int32, String)
 }
 pub fn SvdError::message(Self) -> String
 
@@ -26,7 +30,7 @@ pub struct Change {
   properties : Array[String]
   field_changes : Array[FieldChange]
 }
-pub fn Change::json(Self) -> Json
+pub fn Change::json(Self) -> @json.Json
 
 pub struct Device {
   name : String
@@ -38,16 +42,16 @@ pub struct Device {
 pub fn Device::at(Self, UInt64) -> Array[Register]
 pub fn Device::diff(Self, Self) -> Array[Change]
 pub fn Device::find(Self, String) -> Register?
-pub fn Device::json(Self) -> Json
+pub fn Device::json(Self) -> @json.Json
 pub fn Device::lint(Self) -> Array[Diagnostic]
 
 pub struct Diagnostic {
   code : String
   path : String
-  line : Int
+  line : Int32
   message : String
 }
-pub fn Diagnostic::json(Self) -> Json
+pub fn Diagnostic::json(Self) -> @json.Json
 
 pub struct Field {
   name : String
@@ -55,7 +59,7 @@ pub struct Field {
   bit_width : UInt64
   access : String?
   behavior : AccessBehavior
-  line : Int
+  line : Int32
 }
 
 pub struct FieldChange {
@@ -64,14 +68,14 @@ pub struct FieldChange {
   after : Field?
   properties : Array[String]
 }
-pub fn FieldChange::json(Self) -> Json
+pub fn FieldChange::json(Self) -> @json.Json
 
 pub struct Register {
   path : String
   parent : String
   name : String
   address : UInt64
-  size : Int
+  size : Int32
   access : String?
   behavior : AccessBehavior
   reset_value : UInt64?
@@ -79,10 +83,10 @@ pub struct Register {
   alternate_register : String?
   alternate_group : String?
   fields : Array[Field]
-  line : Int
+  line : Int32
 }
 pub fn Register::decode_field(Self, String, UInt64) -> UInt64?
-pub fn Register::json(Self) -> Json
+pub fn Register::json(Self) -> @json.Json
 
 pub enum WriteConstraint {
   AsRead(Bool)

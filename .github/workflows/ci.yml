@@ -28,6 +28,15 @@ jobs:
       - name: Check, test and build
         run: |
           moon version --all
+          python - <<'PY'
+          import re
+          import subprocess
+          version = subprocess.check_output(["moonc", "-v"], text=True)
+          match = re.search(r"\bv(\d+)\.(\d+)\.(\d+)", version)
+          if match is None or tuple(map(int, match.groups())) < (0, 10, 16):
+              raise SystemExit("MoonSVD requires moonc >= 0.10.16")
+          print("Compiler requirement satisfied:", version.strip())
+          PY
           moon update
           moon fmt --check
           for backend in wasm-gc wasm js native; do
