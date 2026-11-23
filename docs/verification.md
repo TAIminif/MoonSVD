@@ -37,3 +37,9 @@ python scripts/verify_cli.py --official
 ## 初次准备
 
 项目要求 `moonc` 不低于 0.10.16。本地使用 `moonc v0.10.22` 完成检查、测试、JS 构建、示例、CLI 和源码打包。Linux CI 安装官方稳定版，校验并记录编译器版本，覆盖四个核心后端及 Node.js CLI。
+
+## 发布与安装验证
+
+版本 `guoqi/moonsvd@0.2.8` 已发布至 [Mooncakes](https://mooncakes.io/docs/guoqi/moonsvd@0.2.8)。在不引用仓库源码的独立项目中执行 `moon add guoqi/moonsvd@0.2.8`，从注册表下载依赖，在 wasm-gc、wasm、js 三个后端完成检查和运行。验证解析、路径查询、地址查询、位域解码、校验和自比较，示例输出 `TIMER.CTRL @ 40000004, EN=1`。
+
+安装包中的 32 份 MoonBit 源码、接口、包配置及 CLI 文件与 [发布源提交](https://github.com/TAIminif/MoonSVD/commit/ed9b2518ddc5b483434b968237ce14145518da08) 一致（文本换行统一后比较），根许可证也一致。GitHub 的 Mooncakes 安装步骤与命令行安装命令相同，包元数据中的源码地址为 `https://github.com/TAIminif/MoonSVD`。

@@ -6,9 +6,11 @@ MoonSVD 是 MoonBit 实现的 Arm CMSIS-SVD 寄存器描述库和命令行工具
 
 ## 快速运行
 
-安装 [MoonBit 工具链](https://www.moonbitlang.com/download/)（`moonc` 不低于 0.10.16）及 Node.js 22 或更新版本。在仓库根目录运行以下命令。依赖从 Mooncakes 获取，CLI 无需安装 npm 依赖。
+安装 [MoonBit 工具链](https://www.moonbitlang.com/download/)（`moonc` 不低于 0.10.16）及 Node.js 22 或更新版本。克隆仓库后运行以下命令。依赖从 Mooncakes 获取，CLI 无需安装 npm 依赖。
 
 ```sh
+git clone https://github.com/TAIminif/MoonSVD.git
+cd MoonSVD
 moon update
 moon build --target js --release
 node bin/moonsvd.mjs inspect fixtures/timer-v1.svd
@@ -78,5 +80,7 @@ python scripts/verify_cli.py --official
 默认脚本验证仓库内的原创样例。带 `--official` 时，脚本核对 Arm、STM32、Nordic 和 Raspberry Pi 共六份文件的 SHA-256，用 Python XML 读取结果独立核对选定的寄存器地址、复位值、访问权限及位域。来源、版本及复现细节见 [验证说明](docs/verification.md)。
 
 RP2350 样本中的四个 16 位寄存器继承了 32 位复位掩码。`check` 报告四条 `reset-mask-width` 诊断并返回退出码 1，验证脚本逐项核对这些预期结果。
+
+已发布 `guoqi/moonsvd@0.2.8`，并在独立项目中完成安装和运行验证。工程检查与发布证据见[终验自查](docs/acceptance.md)。
 
 源代码采用 [Apache-2.0](LICENSE)。项目以 [Open-CMSIS-SVD 规范](https://open-cmsis-pack.github.io/svd-spec/main/index.html)为依据，复用 [Milky2018/xml](https://github.com/moonbit-community/xml-mbt) 作为通用 XML 解析依赖。
