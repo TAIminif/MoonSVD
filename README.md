@@ -30,7 +30,21 @@ node bin/moonsvd.mjs diff fixtures/status-v1.svd fixtures/status-v2.svd
 
 ## MoonBit API
 
-可将仓库源码作为 MoonBit 工作区依赖使用。根包导出 `parse` 和 `Device`。接口调用示例见 [examples/inspect](examples/inspect/main.mbt)。
+安装 [guoqi/moonsvd](https://mooncakes.io/docs/guoqi/moonsvd) 作为项目依赖：
+
+```sh
+moon add guoqi/moonsvd@0.2.8
+```
+
+在使用该库的 `moon.pkg` 中添加：
+
+```moonbit
+import {
+  "guoqi/moonsvd" @svd,
+}
+```
+
+根包导出 `parse` 和 `Device`。接口调用示例见 [examples/inspect](examples/inspect/main.mbt)。在本仓库中运行：
 
 ```sh
 moon run examples/inspect

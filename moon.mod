@@ -1,4 +1,4 @@
-name = "TAIminif/moonsvd"
+name = "guoqi/moonsvd"
 
 version = "0.2.8"
 
