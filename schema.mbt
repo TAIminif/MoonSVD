@@ -105,7 +105,11 @@ fn read_schema(input : String) -> Schema raise SvdError {
   if device.name != "device" {
     raise device.invalid("expected CMSIS-SVD <device> root")
   }
-  let name = device.identifier()
+  let name_tag = device.required("name")
+  let name = name_tag.text()
+  if name == "" || name.length() > local_name_limit {
+    raise name_tag.invalid("device name must contain 1..256 UTF-16 code units")
+  }
   let declarations = Map([])
   let roots = add_declarations(device, "", declarations, NameBudget::new())
   if roots.is_empty() {

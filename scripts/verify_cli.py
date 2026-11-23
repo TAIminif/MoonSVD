@@ -158,6 +158,23 @@ def verify_fixtures():
             pipe = Path(work, "input.svd")
             os.mkfifo(pipe)
             cli("check", pipe, code=2, diagnostic="regular file")
+        boundary = Path(work, "boundary.svd")
+        boundary.write_text(
+            "<device><name>Chip 2.0</name><size>32</size><peripherals>"
+            "<peripheral><name>P</name><baseAddress>0</baseAddress><registers>"
+            "<register><dim>2</dim><dimIncrement>4</dimIncrement>"
+            "<dimIndex>18446744073709551614-18446744073709551615</dimIndex>"
+            "<name>R%s</name><addressOffset>0</addressOffset></register>"
+            "</registers></peripheral></peripherals></device>",
+            encoding="utf-8",
+        )
+        report = cli("inspect", boundary)
+        assert report["name"] == "Chip 2.0"
+        assert [item["path"] for item in report["registers"]] == [
+            "P.R18446744073709551614", "P.R18446744073709551615"
+        ]
+        selected = cli("lookup", boundary, "P.R18446744073709551615")
+        assert selected["address"] == "0x4"
 
 
 def verify_access_behavior():

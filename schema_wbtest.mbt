@@ -27,3 +27,24 @@ test "schema rejects missing roots and duplicate siblings" {
     }
   }
 }
+
+///|
+test "device names support punctuation independently from declaration paths" {
+  for name in ["Chip 2.0", "芯片 2.0"] {
+    let input = "<device><name>\{name}</name><size>32</size><peripherals>" +
+      "<peripheral><name>P</name><baseAddress>0</baseAddress><registers>" +
+      "<register><name>R</name><addressOffset>0</addressOffset></register>" +
+      "</registers></peripheral></peripherals></device>"
+    let device = parse(input)
+    assert_eq(device.name, name)
+    assert_eq(device.find("P.R").unwrap().address, 0UL)
+    try
+      parse(input.replace_all(old="<name>P</name>", new="<name>P.0</name>"))
+    catch {
+      Invalid(_, _, detail) =>
+        assert_eq(detail, "expected a nonempty local identifier without '.'")
+    } noraise {
+      _ => fail("expected a dotted peripheral identifier to fail")
+    }
+  }
+}

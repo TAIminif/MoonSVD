@@ -25,12 +25,39 @@ test "array indices support defaults, numeric ranges and names" {
 ///|
 test "array definitions fail before expanding invalid indices" {
   let at = read_tree("<x/>")
-  for values in ["A,A", "A", "1-4000000", "B-A", "A,,B"] {
+  for
+    values in [
+      "A,A", "A", "1-4000000", "B-A", "A,,B", "18446744073709551614-18446744073709551616",
+      "18446744073709551615-18446744073709551614", "0-18446744073709551615",
+    ] {
     try expand_instances("R%s", Some(2UL), Some(2UL), Some(values), at) catch {
       Invalid(_, _, _) => ()
     } noraise {
       _ => fail("expected invalid dimIndex \{values}")
     }
+  }
+}
+
+///|
+test "numeric dimIndex labels preserve precision across signed integer boundaries" {
+  let at = read_tree("<x/>")
+  for
+    (indices, names) in [
+      ("4294967294-4294967295", ["R4294967294", "R4294967295"]),
+      (
+        "18446744073709551614-18446744073709551615",
+        ["R18446744073709551614", "R18446744073709551615"],
+      ),
+    ] {
+    let result = expand_instances(
+      "R%s",
+      Some(2UL),
+      Some(4UL),
+      Some(indices),
+      at,
+    )
+    assert_eq(result.map(item => item.name), names)
+    assert_eq(result.map(item => item.offset), [0UL, 4UL])
   }
 }
 

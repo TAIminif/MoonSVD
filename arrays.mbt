@@ -36,13 +36,11 @@ fn substitutions(
         } else {
           let first = number(start_text, node, "dimIndex start")
           let last = number(end_text, node, "dimIndex end")
-          if last < first ||
-            last > 100_000UL ||
-            last - first >= count.to_uint64() {
+          if last < first || last - first >= count.to_uint64() {
             raise node.invalid("invalid or oversized dimIndex range '\{item}'")
           }
-          for index in first.to_int()..<=last.to_int() {
-            values.push(index.to_string())
+          for offset in 0..<=(last - first).to_int() {
+            values.push((first + offset.to_uint64()).to_string())
           }
         }
       } else if range.length() == 1 &&
