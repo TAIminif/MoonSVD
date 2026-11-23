@@ -117,7 +117,13 @@ fn changed_properties(before : Register, after : Register) -> Array[String] {
   if before.reset_mask != after.reset_mask {
     changed.push("resetMask")
   }
-  if before.alternate_register != after.alternate_register ||
+  let before_target = before.alternate_register.map(target => {
+    alias_path(before, target)
+  })
+  let after_target = after.alternate_register.map(target => {
+    alias_path(after, target)
+  })
+  if before_target != after_target ||
     before.alternate_group != after.alternate_group {
     changed.push("alternate")
   }

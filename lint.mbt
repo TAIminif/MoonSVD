@@ -152,9 +152,63 @@ fn alias_path(reg : Register, target : String) -> String {
 }
 
 ///|
-fn is_register_alias(a : Register, b : Register) -> Bool {
+fn resolve_aliases(
+  registers : Array[Register],
+  by_path : Map[String, Register],
+) -> Map[String, String?] {
+  let roots : Map[String, String?] = Map([])
+  let active : Map[String, Bool] = Map([])
+  for reg in registers {
+    if roots.contains(reg.path) {
+      continue
+    }
+    let chain : Array[String] = []
+    let mut current = reg
+    let mut root : String? = None
+    for ;; {
+      if roots.get(current.path) is Some(cached) {
+        root = cached
+        break
+      }
+      if active.contains(current.path) {
+        break
+      }
+      active[current.path] = true
+      chain.push(current.path)
+      match current.alternate_register {
+        None => {
+          root = Some(current.path)
+          break
+        }
+        Some(target) =>
+          match by_path.get(alias_path(current, target)) {
+            Some(peer) if peer.address == current.address &&
+              register_width(peer) == register_width(current) => current = peer
+            _ => break
+          }
+      }
+    }
+    // Cache invalid chains as well, including every dependent of a cycle.
+    for path in chain {
+      roots[path] = root
+      active.remove(path)
+    }
+  }
+  roots
+}
+
+///|
+fn is_register_alias(
+  a : Register,
+  b : Register,
+  roots : Map[String, String?],
+) -> Bool {
   let (a_read, a_write) = access_modes(a.access)
   let (b_read, b_write) = access_modes(b.access)
+  let same_target = match roots.get(a.path) {
+    Some(Some(root)) => roots.get(b.path) == Some(Some(root))
+    _ => false
+  }
   a.address == b.address &&
   register_width(a) == register_width(b) &&
   (
@@ -165,13 +219,7 @@ fn is_register_alias(a : Register, b : Register) -> Bool {
       b.alternate_group == Some(left) &&
       a.parent == b.parent
     ) ||
-    (a.alternate_register is Some(target) && alias_path(a, target) == b.path) ||
-    (b.alternate_register is Some(target) && alias_path(b, target) == a.path) ||
-    (
-      a.alternate_register is Some(left) &&
-      b.alternate_register is Some(right) &&
-      alias_path(a, left) == alias_path(b, right)
-    )
+    same_target
   )
 }
 
@@ -191,13 +239,12 @@ pub fn Device::lint(self : Device) -> Array[Diagnostic] {
       None => by_peripheral[peripheral] = [reg]
     }
   }
+  let roots = resolve_aliases(self.registers, by_path)
   for reg in self.registers {
     if reg.alternate_register is Some(target) {
       let path = alias_path(reg, target)
-      match by_path.get(path) {
-        Some(peer) if peer.path != reg.path &&
-          peer.address == reg.address &&
-          register_width(peer) == register_width(reg) => ()
+      match roots.get(reg.path) {
+        Some(Some(_)) => ()
         _ =>
           output.push(
             finding(
@@ -235,7 +282,7 @@ pub fn Device::lint(self : Device) -> Array[Diagnostic] {
       let end = reg.address + extent
       active = active.filter(item => item.0 >= reg.address)
       for (_, previous) in active {
-        if !is_register_alias(previous, reg) {
+        if !is_register_alias(previous, reg, roots) {
           output.push(
             finding(
               "register-overlap",

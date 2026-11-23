@@ -134,3 +134,39 @@ test "register write-once views are paired with read-only views" {
   assert_eq(findings[0].path, "P.C_WRITE")
   assert_true(findings[0].message.contains("P.B_WRITE"))
 }
+
+///|
+test "alternate register chains resolve transitively in both declaration orders" {
+  let prefix = "<device><name>D</name><size>32</size><peripherals><peripheral><name>P</name><baseAddress>0</baseAddress><registers>"
+  let suffix = "</registers></peripheral></peripherals></device>"
+  let a = "<register><name>A</name><addressOffset>0</addressOffset></register>"
+  let b = "<register><name>B</name><addressOffset>0</addressOffset><alternateRegister>A</alternateRegister></register>"
+  let c = "<register><name>C</name><addressOffset>0</addressOffset><alternateRegister>B</alternateRegister></register>"
+  for body in [a + b + c, c + b + a] {
+    assert_true(@moonsvd.parse(prefix + body + suffix).lint().is_empty())
+  }
+}
+
+///|
+test "cyclic or incompatible alternate chains fail for each dependent register" {
+  let prefix = "<device><name>D</name><size>32</size><peripherals><peripheral><name>P</name><baseAddress>0</baseAddress><registers>"
+  let suffix = "</registers></peripheral></peripherals></device>"
+  for target in ["B", "MISSING"] {
+    let body = "<register><name>A</name><addressOffset>0</addressOffset><alternateRegister>\{target}</alternateRegister></register>" +
+      "<register><name>B</name><addressOffset>0</addressOffset><alternateRegister>A</alternateRegister></register>" +
+      "<register><name>C</name><addressOffset>0</addressOffset><alternateRegister>B</alternateRegister></register>"
+    let findings = @moonsvd.parse(prefix + body + suffix).lint()
+    let aliases = findings.filter(item => item.code == "alternate-register")
+    assert_eq(aliases.map(item => item.path), ["P.A", "P.B", "P.C"])
+  }
+  let incompatible = "<register><name>A</name><addressOffset>4</addressOffset></register>" +
+    "<register><name>B</name><addressOffset>0</addressOffset><alternateRegister>A</alternateRegister></register>" +
+    "<register><name>C</name><addressOffset>0</addressOffset><alternateRegister>B</alternateRegister></register>"
+  let findings = @moonsvd.parse(prefix + incompatible + suffix).lint()
+  assert_eq(
+    findings
+    .filter(item => item.code == "alternate-register")
+    .map(item => item.path),
+    ["P.B", "P.C"],
+  )
+}

@@ -200,6 +200,37 @@ def verify_access_behavior():
     assert pending["after"]["modifiedWriteValues"] == "zeroToClear"
 
 
+def verify_register_aliases():
+    source = (
+        "<device><name>Aliases</name><size>32</size><peripherals>"
+        "<peripheral><name>P</name><baseAddress>0</baseAddress><registers>"
+        "<register><name>A</name><addressOffset>0</addressOffset></register>"
+        "<register><name>B</name><alternateRegister>A</alternateRegister>"
+        "<addressOffset>0</addressOffset></register>"
+        "<register><name>C</name><alternateRegister>B</alternateRegister>"
+        "<addressOffset>0</addressOffset></register>"
+        "</registers></peripheral></peripherals></device>"
+    )
+    with TemporaryDirectory(prefix="moonsvd-aliases-") as work:
+        before = Path(work, "before.svd")
+        after = Path(work, "after.svd")
+        before.write_text(source, encoding="utf-8")
+        assert not cli("check", before)["findings"]
+        after.write_text(
+            source.replace("<alternateRegister>A", "<alternateRegister>P.A"),
+            encoding="utf-8",
+        )
+        assert not cli("diff", before, after)["changes"]
+        after.write_text(
+            source.replace("<name>A</name>", "<name>A</name><alternateRegister>C</alternateRegister>"),
+            encoding="utf-8",
+        )
+        findings = cli("check", after, code=1)["findings"]
+        assert [item["path"] for item in findings if item["code"] == "alternate-register"] == [
+            "P.A", "P.B", "P.C"
+        ]
+
+
 def verified_reference(directory, name, url, expected_hash):
     dest = directory / name
     if not dest.exists():
@@ -304,6 +335,7 @@ def main():
     options = parser.parse_args()
     verify_fixtures()
     verify_access_behavior()
+    verify_register_aliases()
     if options.official:
         if options.reference_dir:
             options.reference_dir.mkdir(parents=True, exist_ok=True)

@@ -76,3 +76,31 @@ test "diff finds access side effects even when address and width are unchanged" 
     Some("oneToSet"),
   )
 }
+
+///|
+test "diff compares alternate register references by their qualified paths" {
+  let originals =
+    #|<register><name>A</name><addressOffset>0</addressOffset></register>
+    #|<register><name>B</name><addressOffset>0</addressOffset><alternateRegister>A</alternateRegister></register>
+  let alias_xml = "<register><name>C</name><addressOffset>0</addressOffset><alternateRegister>A</alternateRegister></register>"
+  let unqualified = variant(originals + alias_xml)
+  let qualified = variant(
+    originals +
+    alias_xml.replace_all(
+      old=">A</alternateRegister>",
+      new=">P.A</alternateRegister>",
+    ),
+  )
+  assert_true(unqualified.diff(qualified).is_empty())
+  let different = variant(
+    originals +
+    alias_xml.replace_all(
+      old=">A</alternateRegister>",
+      new=">B</alternateRegister>",
+    ),
+  )
+  let changes = unqualified.diff(different)
+  assert_eq(changes.length(), 1)
+  assert_eq(changes[0].path, "P.C")
+  assert_eq(changes[0].properties, ["alternate"])
+}
