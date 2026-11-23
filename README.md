@@ -35,7 +35,7 @@ node bin/moonsvd.mjs diff fixtures/status-v1.svd fixtures/status-v2.svd
 安装 [guoqi/moonsvd](https://mooncakes.io/docs/guoqi/moonsvd) 作为项目依赖：
 
 ```sh
-moon add guoqi/moonsvd@0.2.8
+moon add guoqi/moonsvd@0.2.9
 ```
 
 在使用该库的 `moon.pkg` 中添加：
@@ -65,6 +65,7 @@ moon run examples/inspect
 - 寄存器别名支持连续引用，校验循环、悬空和跨地址引用。版本比较将短名和完整路径统一后比较，报告别名目标的实际变化。
 - `alternateGroup` 与连续别名引用可组合使用。同一作用域、地址和存储宽度的别名组会参与传递关联，循环及跨地址引用单独校验。
 - CLI 读取 UTF-8、最多 16 MiB 的常规文件。库在解析 XML 前禁用 DTD，限制单个标签最多 128 个属性、65,536 个 UTF-16 代码单元，限制 XML 层级和继承链各最多 64 层，并限制展开实例的数量、名称大小和继承合并的工作量。超出限额的输入会得到明确的解析错误。详见[验证说明](docs/verification.md)。
+- XML 声明只允许在文档开头出现一次，可位于 UTF-8 BOM 之后；重复或位置错误的声明返回带行列号的解析错误。正常的 `xml-stylesheet`、`xml-model` 处理指令及注释、CDATA 不会被误判为声明。
 - 当前覆盖寄存器布局和声明的读写行为，枚举值定义、中断说明、外设地址块权限和厂商扩展仍在范围之外。完整 XSD 合规性可用独立工具核查。CLI 的文件宿主是 Node.js，解析、校验、比较和结构化输出均由 MoonBit 完成。
 
 ## 测试与来源
@@ -81,6 +82,6 @@ python scripts/verify_cli.py --official
 
 RP2350 样本中的四个 16 位寄存器继承了 32 位复位掩码。`check` 报告四条 `reset-mask-width` 诊断并返回退出码 1，验证脚本逐项核对这些预期结果。
 
-已发布 `guoqi/moonsvd@0.2.8`，并在独立项目中完成安装和运行验证。工程检查与发布证据见[终验自查](docs/acceptance.md)。
+已发布 `guoqi/moonsvd@0.2.9`，并在独立项目中完成安装和运行验证。工程检查与发布证据见[终验自查](docs/acceptance.md)。
 
 源代码采用 [Apache-2.0](LICENSE)。项目以 [Open-CMSIS-SVD 规范](https://open-cmsis-pack.github.io/svd-spec/main/index.html)为依据，复用 [Milky2018/xml](https://github.com/moonbit-community/xml-mbt) 作为通用 XML 解析依赖。

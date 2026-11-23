@@ -132,6 +132,22 @@ fn check_xml_tokens(input : String) -> Unit raise SvdError {
     } else if token.strip_prefix("<![CDATA[") is Some(body) {
       (body, "]]>")
     } else if token.strip_prefix("<?") is Some(body) {
+      // The XML reader can omit declaration events when a BOM is present, so
+      // enforce the document position before passing tokens to the dependency.
+      if body.strip_prefix("xml") is Some(tail) &&
+        (
+          tail.has_prefix(" ") ||
+          tail.has_prefix("\t") ||
+          tail.has_prefix("\r") ||
+          tail.has_prefix("\n") ||
+          tail.has_prefix("?>")
+        ) &&
+        cursor != 0 &&
+        !(cursor == 1 && input.has_prefix("\u{FEFF}")) {
+        raise input_error(
+          input, cursor, "XML declaration must occur once at the document start",
+        )
+      }
       (body, "?>")
     } else {
       if token.has_prefix("<!DOCTYPE") {

@@ -143,6 +143,31 @@ def verify_fixtures():
         malformed = Path(work, "broken.svd")
         malformed.write_text("<device><name></device>", encoding="utf-8")
         cli("check", malformed, code=2, diagnostic="line 1")
+        document = ElementTree.tostring(
+            ElementTree.parse(v1).getroot(), encoding="unicode"
+        )
+        declaration = '<?xml version="1.0"?>'
+        for bom in ["", "\ufeff"]:
+            for separator in ["", "\r\n"]:
+                text = bom + declaration + separator + declaration + document
+                try:
+                    ElementTree.fromstring(text)
+                except ElementTree.ParseError:
+                    pass
+                else:
+                    raise AssertionError("duplicate XML declarations must be invalid")
+                malformed.write_text(text, encoding="utf-8")
+                cli(
+                    "check", malformed, code=2,
+                    diagnostic="XML declaration must occur once at the document start",
+                )
+            text = (
+                bom + declaration + '<?xml-stylesheet href="style.xsl"?>'
+                + document
+            )
+            ElementTree.fromstring(text)
+            malformed.write_text(text, encoding="utf-8")
+            assert len(cli("inspect", malformed)["registers"]) == 6
         attributes = " ".join(f'a{i}=""' for i in range(129))
         malformed.write_text(f"<device {attributes}/>", encoding="utf-8")
         cli("check", malformed, code=2, diagnostic="exceeds 128 attributes")

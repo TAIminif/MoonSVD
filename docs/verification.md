@@ -14,6 +14,7 @@ python scripts/verify_cli.py --official
 ## 异常输入
 
 - 回归测试覆盖 DTD 在进入 XML 解析前被拒绝、注释与 CDATA 中的同名文本仍可读取，以及两种声明顺序下 64 层继承成功、65 层失败。
+- XML 声明位置在解析事件之前校验，覆盖有无 BOM、重复声明之间的 CRLF、声明前的空白、注释和处理指令，并核对错误行列号。合法的 BOM 和单次声明、`xml-stylesheet` / `xml-model` 指令及 CDATA、注释内的同名文本保持可读；CLI 使用 Python ElementTree 独立确认重复声明非法并检查退出码 2。依据 [XML 1.0 文档序言规则](https://www.w3.org/TR/xml/#sec-prolog-dtd)。
 - 文件输入限 16 MiB。库输入限 8,388,608 个 UTF-16 代码单元、250,000 个 XML 元素及 250,000 个展开实例。单个局部名称限 256 个 UTF-16 代码单元，限定路径限 4,096 个，数值文本限 128 个。声明索引和展开阶段各有 8,388,608 个 UTF-16 代码单元的累计名称预算，展开阶段同时计算寄存器别名。继承合并累计最多处理 1,000,000 个子项，直接继承会复用已有子项列表。
 - 外设、寄存器组和寄存器的展开层级最多 32 层。语义校验同时跟踪最多 128 个重叠寄存器，超过时报告 `overlap-density`，CLI `check` 返回 1。
 - CLI 回归测试检查损坏的 XML、非法 UTF-8、超限文件、目录、控制字符诊断和 Linux 命名管道。
@@ -40,6 +41,6 @@ python scripts/verify_cli.py --official
 
 ## 发布与安装验证
 
-版本 `guoqi/moonsvd@0.2.8` 已发布至 [Mooncakes](https://mooncakes.io/docs/guoqi/moonsvd@0.2.8)。在不引用仓库源码的独立项目中执行 `moon add guoqi/moonsvd@0.2.8`，从注册表下载依赖，在 wasm-gc、wasm、js 三个后端完成检查和运行。验证解析、路径查询、地址查询、位域解码、校验和自比较，示例输出 `TIMER.CTRL @ 40000004, EN=1`。
+版本 `guoqi/moonsvd@0.2.9` 已发布至 [Mooncakes](https://mooncakes.io/docs/guoqi/moonsvd@0.2.9)。在不引用仓库源码的独立项目中执行 `moon add guoqi/moonsvd@0.2.9`，从注册表下载依赖，在 wasm-gc、wasm、js 三个后端完成检查和运行。验证解析、路径查询、地址查询、位域解码、校验和自比较，示例输出 `TIMER.CTRL @ 40000004, EN=1`。
 
-安装包中的 32 份 MoonBit 源码、接口、包配置及 CLI 文件与 [发布源提交](https://github.com/TAIminif/MoonSVD/commit/ed9b2518ddc5b483434b968237ce14145518da08) 一致（文本换行统一后比较），根许可证也一致。GitHub 的 Mooncakes 安装步骤与命令行安装命令相同，包元数据中的源码地址为 `https://github.com/TAIminif/MoonSVD`。
+安装包中的 32 份 MoonBit 源码、接口、包配置及 CLI 文件与 [v0.2.9 发布源码](https://github.com/TAIminif/MoonSVD/tree/v0.2.9) 一致（文本换行统一后比较），根许可证也一致。README 提供了相同的安装命令，包元数据中的源码地址为 `https://github.com/TAIminif/MoonSVD`。

@@ -117,3 +117,60 @@ test "XML token length limits count UTF-16 units and respect quotes" {
     }
   }
 }
+
+///|
+test "XML declarations cannot repeat with or without a byte order mark" {
+  let declaration = "<?xml version=\"1.0\"?>"
+  for prefix in ["", "\u{FEFF}"] {
+    for separator in ["", "\r\n"] {
+      let input = prefix + declaration + separator + declaration + "<x/>"
+      try read_tree(input) catch {
+        Invalid(line, column, detail) => {
+          assert_eq(line, if separator == "" { 1 } else { 2 })
+          assert_eq(
+            column,
+            if separator == "" {
+              prefix.length() + declaration.length() + 1
+            } else {
+              1
+            },
+          )
+          assert_eq(
+            detail, "XML declaration must occur once at the document start",
+          )
+        }
+      } noraise {
+        _ => fail("expected the second XML declaration to be rejected")
+      }
+    }
+  }
+}
+
+///|
+test "XML declaration position rejects preceding whitespace comments and instructions" {
+  for prefix in [" ", "\r\n", "<!--before-->", "<?hint data?>"] {
+    try read_tree(prefix + "<?xml version=\"1.0\"?><x/>") catch {
+      Invalid(_, _, detail) =>
+        assert_eq(
+          detail, "XML declaration must occur once at the document start",
+        )
+    } noraise {
+      _ => fail("expected a misplaced XML declaration to be rejected")
+    }
+  }
+}
+
+///|
+test "XML declaration checks preserve BOM headers and stylesheet instructions" {
+  for prefix in ["", "\u{FEFF}"] {
+    for declaration in ["", "<?xml version=\"1.0\"?>", "<?xml\nversion='1.0'?>"] {
+      let root = read_tree(
+        prefix +
+        declaration +
+        "<!-- <?xml version='1.0'?> --><?xml-stylesheet href='style.xsl'?>" +
+        "<x><![CDATA[<?xml version='1.0'?>]]></x><?xml-model href='schema.rng'?>",
+      )
+      assert_eq(root.text(), "<?xml version='1.0'?>")
+    }
+  }
+}
